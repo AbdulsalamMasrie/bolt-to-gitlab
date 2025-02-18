@@ -10,7 +10,7 @@ export abstract class BaseGitService {
   protected abstract get apiVersion(): string;
   protected abstract get acceptHeader(): string;
 
-  constructor(protected token: string) {}
+  constructor(protected token: string, protected customBaseUrl?: string) {}
 
   async request(method: string, endpoint: string, body?: any, options: RequestInit = {}) {
     const url = `${this.baseUrl}/${this.apiVersion}${endpoint}`;

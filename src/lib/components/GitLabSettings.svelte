@@ -11,6 +11,7 @@
   export let repoOwner: string;
   export let repoName: string;
   export let branch: string = 'main';
+  export let baseUrl: string = 'https://gitlab.com';
   export let onSave: () => void;
   export let onInput: () => void;
   export let buttonDisabled: boolean = false;
@@ -372,6 +373,20 @@
         bind:value={repoOwner}
         on:input={handleOwnerInput}
         placeholder="username or organization"
+        class="bg-slate-800 border-slate-700 text-slate-200 placeholder:text-slate-500"
+      />
+    </div>
+
+    <div class="space-y-2">
+      <Label for="baseUrl" class="text-slate-200">
+        GitLab Base URL
+        <span class="text-sm text-slate-400 ml-2">(Default: https://gitlab.com)</span>
+      </Label>
+      <Input
+        type="text"
+        id="baseUrl"
+        bind:value={baseUrl}
+        placeholder="https://gitlab.com"
         class="bg-slate-800 border-slate-700 text-slate-200 placeholder:text-slate-500"
       />
     </div>

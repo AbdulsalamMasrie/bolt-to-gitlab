@@ -1,8 +1,8 @@
-export const AUTHOR = 'AI-Driven Coder';
-export const COMPANY = 'Codefrost';
-export const AUTHOR_SITE = 'https://aidrivencoder.com';
-export const COMPANY_SITE = 'https://codefrost.dev';
-export const GITLAB_LINK = 'https://gitlab.com/aidrivencoder';
-export const YOUTUBE_LINK = 'https://youtube.com/@aidrivencoder';
-export const COFFEE_LINK = 'https://www.buymeacoffee.com/aidrivencoder';
-export const TUTORIAL_LINK = 'https://youtu.be/7C03DNw9ZHI';
+export const AUTHOR = 'MontyMobile';
+export const COMPANY = 'MontyMobile';
+export const AUTHOR_SITE = 'https://montymobile.com';
+export const COMPANY_SITE = 'https://montymobile.com';
+export const GITLAB_LINK = 'https://gitlab.com/montymobile';
+export const YOUTUBE_LINK = 'https://montymobile.com';
+export const COFFEE_LINK = 'https://montymobile.com';
+export const TUTORIAL_LINK = 'https://montymobile.com';

@@ -1,10 +1,10 @@
 # Bolt to GitLab - Chrome Extension
 
 <div align="center">
-  <a href="https://aidrivencoder.com">
-    <img src="assets/icons/icon128.png" alt="AI-Driven Coder" width="128">
+  <a href="https://montymobile.com">
+    <img src="assets/icons/icon128.png" alt="MontyMobile" width="128">
   </a>
-  <h3>A project by <a href="https://aidrivencoder.com">AI-Driven Coder</a></h3>
+  <h3>A project by <a href="https://montymobile.com">MontyMobile</a></h3>
   <p>
     <a href="https://chrome.google.com/webstore/detail/pikdepbilbnnpgdkdaaoeekgflljmame">
       <img src="https://img.shields.io/chrome-web-store/v/pikdepbilbnnpgdkdaaoeekgflljmame" alt="Chrome Web Store">
@@ -235,16 +235,14 @@ See our [Contributing Guide](#contributing) for more details.
 
 ### Documentation & Tutorials
 
-- 📺 [Watch our video tutorials](https://youtube.com/@aidrivencoder)
-- 📖 [Read the documentation](https://github.com/mamertofabian/bolt-to-gitlab)
-- 💡 [Get development tips](https://aidrivencoder.com)
-- 💬 [Discord Community](https://discord.gg/JtjYHBBnGU)
+- 📖 [Read the documentation](https://gitlab.com/montymobile/bolt-to-gitlab)
+- 💡 [Visit our website](https://montymobile.com)
 
 ### Professional Support
 
 - 📊 [Book a consultation](https://calendly.com/mamerto/30min)
-- 📧 [Email support](mailto:mamerto@codefrost.com)
-- 💻 [Custom development inquiries](https://codefrost.com)
+- 📧 [Email support](mailto:support@montymobile.com)
+- 💻 [Custom development inquiries](https://montymobile.com)
 
 ### Report Issues
 
@@ -254,7 +252,7 @@ For bugs or feature requests, please [open an issue](https://gitlab.com/mamertof
 
 If you find this extension helpful, you can support its development:
 
-[![Buy Me A Coffee](https://www.buymeacoffee.com/assets/img/custom_images/orange_img.png)](https://www.buymeacoffee.com/aidrivencoder)
+
 
 Your support helps maintain and improve this extension!
 
@@ -340,14 +338,11 @@ A: Currently, the extension processes all files in the ZIP. File filtering may b
 
 <div align="center">
   <p>
-    Created by <a href="https://aidrivencoder.com">AI-Driven Coder</a> | 
-    Powered by <a href="https://codefrost.com">Codefrost</a> |
-    Maintained by <a href="https://github.com/mamertofabian">Mamerto Fabian</a>
+    Created by <a href="https://montymobile.com">MontyMobile</a>
   </p>
   <p>
-    <a href="https://youtube.com/@aidrivencoder">YouTube</a> •
-    <a href="https://aidrivencoder.com">Website</a> •
-    <a href="https://gitlab.com/aidrivencoder">GitLab</a>
+    <a href="https://montymobile.com">Website</a>
+    <a href="https://gitlab.com/montymobile">GitLab</a>
   </p>
 </div>
 

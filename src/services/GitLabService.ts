@@ -121,6 +121,33 @@ export class GitLabService extends BaseGitService {
     return 'application/json';
   }
 
+  public async validateProjectUrl(url: string): Promise<{ isValid: boolean; error?: string }> {
+    try {
+      const urlObj = new URL(url);
+      if (!urlObj.hostname.includes('gitlab')) {
+        return { isValid: false, error: 'Invalid GitLab URL' };
+      }
+      
+      const parts = urlObj.pathname.replace(/\.git$/, '').split('/').filter(Boolean);
+      if (parts.length < 2) {
+        return { isValid: false, error: 'Invalid repository URL format' };
+      }
+
+      const [owner, repo] = parts;
+      try {
+        await this.request('GET', `/projects/${encodeURIComponent(`${owner}/${repo}`)}`);
+        return { isValid: true };
+      } catch (error: any) {
+        if (error.status === 404) {
+          return { isValid: false, error: 'Repository not found' };
+        }
+        throw error;
+      }
+    } catch (error) {
+      return { isValid: false, error: 'Invalid GitLab URL' };
+    }
+  }
+
   protected async handleError(response: Response): Promise<Error> {
     let errorDetails;
     try {

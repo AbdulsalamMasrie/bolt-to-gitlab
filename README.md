@@ -12,9 +12,6 @@
     <a href="https://gitlab.com/mamertofabian/bolt-to-gitlab/blob/main/LICENSE">
       <img src="https://img.shields.io/gitlab/license/mamertofabian/bolt-to-gitlab" alt="License">
     </a>
-    <a href="https://youtube.com/@aidrivencoder">
-      <img src="https://img.shields.io/badge/YouTube-Subscribe-red" alt="YouTube">
-    </a>
   </p>
 </div>
 
@@ -32,7 +29,7 @@ A Chrome extension that automatically captures ZIP file downloads from bolt.new,
 
 #### 🔒 New in v1.2.1
 
-- Support for Private GitLab repositories (see demo here: https://youtu.be/d9NqXRoroi0)
+- Support for Private GitLab repositories
 - Enhanced GitLab integration with token validation
 - Improved repository management and temporary repository handling
 - New user interface components:
@@ -137,7 +134,7 @@ Follow these steps to get started:
 1. [Create a GitLab account](https://gitlab.com/users/sign_up)
 2. [Generate a personal access token](https://gitlab.com/-/profile/personal_access_tokens) (needs api, read_api, read_repository, write_repository permissions)
 
-Need help? Watch our [Quick Start Video Tutorial](https://youtu.be/7C03DNw9ZHI)
+Need help? Check our documentation for detailed instructions.
 
 ### 🛠️ For Developers (Contributing)
 

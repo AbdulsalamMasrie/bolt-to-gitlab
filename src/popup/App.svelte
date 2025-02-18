@@ -11,10 +11,9 @@
   import { STORAGE_KEY } from '../background/TempRepoManager';
   import { Tabs, TabsContent } from '$lib/components/ui/tabs';
   import Header from '$lib/components/Header.svelte';
-  import SocialLinks from '$lib/components/SocialLinks.svelte';
   import StatusAlert from '$lib/components/StatusAlert.svelte';
   import GitLabSettings from '$lib/components/GitLabSettings.svelte';
-  import { COFFEE_LINK, GITLAB_LINK, YOUTUBE_LINK } from '$lib/constants';
+  import { GITLAB_LINK } from '$lib/constants';
   import Footer from '$lib/components/Footer.svelte';
   import type { GitLabSettingsInterface } from '$lib/types';
   import ProjectsList from '$lib/components/ProjectsList.svelte';
@@ -291,9 +290,7 @@
               />
             {/if}
 
-            <div class="mt-6 space-y-4">
-              <SocialLinks {GITLAB_LINK} {YOUTUBE_LINK} {COFFEE_LINK} />
-            </div>
+
           </TabsContent>
 
           <TabsContent value="projects">

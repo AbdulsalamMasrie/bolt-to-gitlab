@@ -176,21 +176,21 @@
       <ul class="space-y-2 text-sm text-slate-400">
         <li>
           • Visit our <a
-            href="https://gitlab.com/aidrivencoder/bolt-to-gitlab"
+            href="https://gitlab.com/montymobile/bolt-to-gitlab"
             target="_blank"
             class="text-blue-400 hover:underline">GitLab repository</a
           > for detailed documentation, issues, and updates
         </li>
         <li>
           • Join our <a
-            href="https://aidrivencoder.com/discord"
+            href="https://montymobile.com"
             target="_blank"
             class="text-blue-400 hover:underline">Discord community</a
           > for support and discussions
         </li>
         <li>
           • Watch our <a
-            href="https://aidrivencoder.com/youtube"
+            href="https://montymobile.com"
             target="_blank"
             class="text-blue-400 hover:underline">AI development tutorials</a
           > on YouTube for expert guidance and tips! 🎥

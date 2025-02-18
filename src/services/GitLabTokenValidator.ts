@@ -1,8 +1,9 @@
 import { BaseGitService, type ProgressCallback } from './BaseGitService';
+import { DEFAULT_GITLAB_BASE_URL } from './GitLabService';
 
 export class GitLabTokenValidator extends BaseGitService {
   protected get baseUrl(): string {
-    return 'https://gitlab.com/api';
+    return `${this.customBaseUrl || DEFAULT_GITLAB_BASE_URL}/api`;
   }
 
   protected get apiVersion(): string {

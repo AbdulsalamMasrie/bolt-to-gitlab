@@ -30,6 +30,7 @@ export type ProjectSettings = Record<string, ProjectSetting>;
 export interface GitLabSettingsInterface {
   gitlabToken: string;
   repoOwner: string;
+  baseUrl: string;
   projectSettings?: ProjectSettings;
 }
 

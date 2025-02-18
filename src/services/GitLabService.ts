@@ -2,10 +2,10 @@ import { BaseGitService, type ProgressCallback } from './BaseGitService';
 import type { UploadProgress } from '../lib/types';
 
 export const GITLAB_API_VERSION = 'v4';
-export const GITLAB_BASE_URL = 'https://gitlab.com/api';
-export const GITLAB_SIGNUP_URL = 'https://gitlab.com/users/sign_up';
+export const DEFAULT_GITLAB_BASE_URL = 'https://gitlab.com';
+export const GITLAB_SIGNUP_URL = `${DEFAULT_GITLAB_BASE_URL}/users/sign_up`;
 export const CREATE_TOKEN_URL =
-  'https://gitlab.com/-/profile/personal_access_tokens?name=Bolt%20to%20GitLab&scopes=api,read_api,read_user,read_repository,write_repository';
+  `${DEFAULT_GITLAB_BASE_URL}/-/profile/personal_access_tokens?name=Bolt%20to%20GitLab&scopes=api,read_api,read_user,read_repository,write_repository`;
 
 interface GitLabFileResponse {
   file_path: string;
@@ -30,9 +30,9 @@ import { GitLabTokenValidator } from './GitLabTokenValidator';
 export class GitLabService extends BaseGitService {
   private tokenValidator: GitLabTokenValidator;
 
-  constructor(token: string) {
-    super(token);
-    this.tokenValidator = new GitLabTokenValidator(token);
+  constructor(token: string, customBaseUrl: string = DEFAULT_GITLAB_BASE_URL) {
+    super(token, customBaseUrl);
+    this.tokenValidator = new GitLabTokenValidator(token, customBaseUrl);
   }
 
   protected getRequestHeaders(): Record<string, string> {
@@ -110,7 +110,7 @@ export class GitLabService extends BaseGitService {
     return namespace.id;
   }
   protected get baseUrl(): string {
-    return GITLAB_BASE_URL;
+    return `${this.customBaseUrl || DEFAULT_GITLAB_BASE_URL}/api`;
   }
 
   protected get apiVersion(): string {

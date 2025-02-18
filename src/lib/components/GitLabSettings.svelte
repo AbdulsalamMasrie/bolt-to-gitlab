@@ -16,12 +16,20 @@
   export let onInput: () => void;
   export let buttonDisabled: boolean = false;
   
-  // Store last used values
-  let lastProjectUrl: string = '';
+  // Store project URL history
+  let projectUrlHistory: ProjectUrlHistory[] = [];
+  let selectedUrl: string = '';
+  let newUrl: string = '';
   let lastBranch: string = 'main';
 
   let isValidatingToken = false;
   let isTokenValid: boolean | null = null;
+  let projectSettings: Record<string, { repoName: string; branch: string }> = {};
+  let parsedProjectId: string | null = null;
+  let hasInitialSettings = false;
+  let hasStatus = false;
+  let status = '';
+  let isSettingsValid = false;
   let tokenValidationTimeout: number;
   let validationError: string | null = null;
   let isCheckingPermissions = false;
@@ -64,9 +72,12 @@
 
   onMount(async () => {
     // Load last permission check timestamp and last used values
-    const storage = await chrome.storage.local.get(['lastPermissionCheck', 'lastProjectUrl', 'lastBranch']);
+    const storage = await chrome.storage.local.get(['lastPermissionCheck', 'projectUrlHistory', 'lastBranch']);
     lastPermissionCheck = storage.lastPermissionCheck || null;
-    lastProjectUrl = storage.lastProjectUrl || '';
+    projectUrlHistory = storage.projectUrlHistory || [];
+    if (projectUrlHistory.length > 0) {
+      selectedUrl = projectUrlHistory[0].url;
+    }
     lastBranch = storage.lastBranch || 'main';
     previousToken = gitlabToken;
 
@@ -92,8 +103,8 @@
       validationError = result.error || null;
 
       // Load last used values if validation successful
-      if (result.isValid && lastProjectUrl) {
-        const parsed = parseGitLabUrl(lastProjectUrl);
+      if (result.isValid && selectedUrl) {
+        const parsed = parseGitLabUrl(selectedUrl);
         if (parsed) {
           repoName = parsed.name;
           branch = lastBranch;
@@ -207,20 +218,83 @@
   const handleSave = async (event: Event) => {
     event.preventDefault();
 
-    const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000;
-    const needsCheck =
-      previousToken !== gitlabToken ||
-      !lastPermissionCheck ||
-      Date.now() - lastPermissionCheck > THIRTY_DAYS;
-
-    if (needsCheck) {
-      await checkTokenPermissions();
-      if (permissionError) {
-        return; // Don't proceed if permissions check failed
+    try {
+      // Ensure we have the minimum required settings
+      if (!gitlabToken || !repoOwner) {
+        throw new Error('Missing required settings');
       }
-    }
 
-    onSave();
+      // Validate token and username before saving
+      const gitlabService = new GitLabService(gitlabToken, baseUrl);
+      const result = await gitlabService.validateTokenAndUser(repoOwner);
+      const isValid = result.isValid;
+      if (!isValid) {
+        throw new Error(validationError || 'Validation failed');
+      }
+
+      const THIRTY_DAYS = 30 * 24 * 60 * 60 * 1000;
+      const needsCheck =
+        previousToken !== gitlabToken ||
+        !lastPermissionCheck ||
+        Date.now() - lastPermissionCheck > THIRTY_DAYS;
+
+      if (needsCheck) {
+        await checkTokenPermissions();
+        if (permissionError) {
+          throw new Error(permissionError);
+        }
+      }
+
+      // Validate project URL if provided
+      const url = selectedUrl || newUrl;
+      if (url) {
+        const gitlabService = new GitLabService(gitlabToken, baseUrl);
+        const urlValidation = await gitlabService.validateProjectUrl(url);
+        if (!urlValidation.isValid) {
+          throw new Error(urlValidation.error || 'Invalid project URL');
+        }
+
+        // Save URL to history
+        const history = [
+          { url, branch, lastUsed: Date.now() },
+          ...projectUrlHistory.filter(h => h.url !== url).slice(0, 9)
+        ];
+        await chrome.storage.local.set({ projectUrlHistory: history });
+        projectUrlHistory = history;
+      }
+
+      const settings = {
+        gitlabToken,
+        repoOwner,
+        baseUrl,
+        projectSettings,
+      };
+
+      if (parsedProjectId) {
+        projectSettings[parsedProjectId] = {
+          repoName,
+          branch: branch || 'main' // Set default branch if not specified
+        };
+        settings.projectSettings = projectSettings;
+      }
+
+      await chrome.storage.sync.set(settings);
+      hasInitialSettings = true;
+      status = 'Settings saved successfully!';
+      hasStatus = true;
+      checkSettingsValidity();
+      setTimeout(() => {
+        status = '';
+        hasStatus = false;
+      }, 3000);
+
+      onSave();
+    } catch (error) {
+      console.error('Error saving settings:', error);
+      status = error instanceof Error ? error.message : 'Error saving settings';
+      hasStatus = true;
+      isSettingsValid = false;
+    }
   };
 
   // Project settings removed - using last used values instead
@@ -391,7 +465,31 @@
       />
     </div>
 
-    <!-- URL and branch inputs removed from settings - will be handled during commit -->
+    <div class="space-y-2">
+      <Label for="projectUrl" class="text-slate-200">
+        Project URL
+        <span class="text-sm text-slate-400 ml-2">(GitLab repository URL)</span>
+      </Label>
+      {#if projectUrlHistory.length > 0}
+        <select
+          id="projectUrl"
+          bind:value={selectedUrl}
+          class="w-full px-3 py-2 text-sm rounded-md bg-slate-800 text-white border border-slate-700 focus:border-blue-500 focus:outline-none"
+        >
+          {#each projectUrlHistory as history}
+            <option value={history.url}>{history.url} ({history.branch})</option>
+          {/each}
+          <option value="">Enter new URL...</option>
+        </select>
+      {/if}
+      <Input
+        type="text"
+        id="newProjectUrl"
+        bind:value={newUrl}
+        placeholder="https://gitlab.com/username/repo.git"
+        class="bg-slate-800 border-slate-700 text-slate-200 placeholder:text-slate-500"
+      />
+    </div>
 
     <div class="flex justify-end">
       <Button type="submit" disabled={buttonDisabled || !isTokenValid}>Save Settings</Button>

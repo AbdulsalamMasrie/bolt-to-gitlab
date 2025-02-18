@@ -62,3 +62,11 @@ export interface GitlabConfig extends GitConfig {
   /** GitLab-specific configuration */
   namespace_id?: number;
 }
+
+export interface ProjectUrlHistory {
+  url: string;
+  branch: string;
+  lastUsed: number;
+}
+
+export type ProjectUrlHistoryList = ProjectUrlHistory[];

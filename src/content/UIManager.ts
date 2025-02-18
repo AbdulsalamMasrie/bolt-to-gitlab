@@ -194,10 +194,22 @@ export class UIManager {
       return;
     }
 
-    const { confirmed, commitMessage } = await this.showGitLabConfirmation(
-      settings.gitLabSettings?.projectSettings || {}
-    );
-    if (!confirmed) return;
+    const { confirmed, commitMessage, url, branch } = await this.showGitLabConfirmation();
+    if (!confirmed || !url) return;
+
+    // Parse URL to get owner and repo name
+    const urlObj = new URL(url);
+    const parts = urlObj.pathname.replace(/\.git$/, '').split('/').filter(Boolean);
+    if (parts.length < 2) {
+      this.showNotification({
+        type: 'error',
+        message: 'Invalid GitLab repository URL',
+        duration: 5000
+      });
+      return;
+    }
+
+    const [owner, repo] = parts;
 
     try {
       // Update button state to processing
@@ -207,7 +219,7 @@ export class UIManager {
             <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" fill="none"></circle>
             <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
           </svg>
-          Pushing to GitLab...
+          Pushing to ${owner}/${repo}...
         `;
         (this.uploadButton as HTMLButtonElement).disabled = true;
       }
@@ -270,9 +282,12 @@ export class UIManager {
   }
 
   // Function to show confirmation dialog
-  private showGitLabConfirmation = (
-    projectSettings: Record<string, { repoName: string; branch: string }>
-  ): Promise<{ confirmed: boolean; commitMessage?: string }> => {
+  private showGitLabConfirmation = async (): Promise<{ confirmed: boolean; commitMessage?: string; url?: string; branch?: string }> => {
+    // Load last used values first
+    const storage = await chrome.storage.local.get(['lastProjectUrl', 'lastBranch']);
+    const lastProjectUrl = storage.lastProjectUrl || '';
+    const lastBranch = storage.lastBranch || 'main';
+
     return new Promise((resolve) => {
       const overlay = document.createElement('div');
       overlay.style.zIndex = '9999';
@@ -296,17 +311,37 @@ export class UIManager {
 
       dialog.innerHTML = `
         <h3 class="text-lg font-semibold text-white">Confirm GitLab Upload</h3>
-        <p class="text-slate-300 text-sm">Are you sure you want to upload this project to GitLab? <br />
-          <span class="font-mono">${projectSettings.repoName} / ${projectSettings.branch}</span>
-        </p>
-        <div class="mt-4">
-          <label for="commit-message" class="block text-sm text-slate-300 mb-2">Commit message (optional)</label>
-          <input 
-            type="text" 
-            id="commit-message" 
-            placeholder="Commit from Bolt to GitLab"
-            class="w-full px-3 py-2 text-sm rounded-md bg-slate-800 text-white border border-slate-700 focus:border-blue-500 focus:outline-none"
-          >
+        <p class="text-slate-300 text-sm">Please provide the GitLab repository details:</p>
+        <div class="mt-4 space-y-4">
+          <div>
+            <label for="gitlab-url" class="block text-sm text-slate-300 mb-2">Repository URL</label>
+            <input 
+              type="text" 
+              id="gitlab-url" 
+              value="${lastProjectUrl}"
+              placeholder="https://gitlab.com/username/repo.git"
+              class="w-full px-3 py-2 text-sm rounded-md bg-slate-800 text-white border border-slate-700 focus:border-blue-500 focus:outline-none"
+            >
+          </div>
+          <div>
+            <label for="branch" class="block text-sm text-slate-300 mb-2">Branch</label>
+            <input 
+              type="text" 
+              id="branch" 
+              value="${lastBranch}"
+              placeholder="main"
+              class="w-full px-3 py-2 text-sm rounded-md bg-slate-800 text-white border border-slate-700 focus:border-blue-500 focus:outline-none"
+            >
+          </div>
+          <div>
+            <label for="commit-message" class="block text-sm text-slate-300 mb-2">Commit message (optional)</label>
+            <input 
+              type="text" 
+              id="commit-message" 
+              placeholder="Commit from Bolt to GitLab"
+              class="w-full px-3 py-2 text-sm rounded-md bg-slate-800 text-white border border-slate-700 focus:border-blue-500 focus:outline-none"
+            >
+          </div>
         </div>
         <div class="flex justify-end gap-3 mt-6">
           <button class="px-4 py-2 text-sm rounded-md bg-slate-800 text-slate-300 hover:bg-slate-700" id="cancel-upload">
@@ -334,12 +369,19 @@ export class UIManager {
         resolve({ confirmed: false });
       });
 
-      dialog.querySelector('#confirm-upload')?.addEventListener('click', () => {
-        const commitMessage =
-          (dialog.querySelector('#commit-message') as HTMLInputElement)?.value ||
-          'Commit from Bolt to GitLab';
+      dialog.querySelector('#confirm-upload')?.addEventListener('click', async () => {
+        const url = (dialog.querySelector('#gitlab-url') as HTMLInputElement)?.value;
+        const branch = (dialog.querySelector('#branch') as HTMLInputElement)?.value || 'main';
+        const commitMessage = (dialog.querySelector('#commit-message') as HTMLInputElement)?.value || 'Commit from Bolt to GitLab';
+
+        // Save last used values
+        await chrome.storage.local.set({
+          lastProjectUrl: url,
+          lastBranch: branch
+        });
+
         document.body.removeChild(overlay);
-        resolve({ confirmed: true, commitMessage });
+        resolve({ confirmed: true, commitMessage, url, branch });
       });
     });
   };

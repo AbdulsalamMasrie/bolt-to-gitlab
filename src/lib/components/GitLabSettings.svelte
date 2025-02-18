@@ -7,17 +7,17 @@
   import { GitLabService } from '../../services/GitLabService';
   import NewUserGuide from './gitlab/gitlab/NewUserGuide.svelte';
 
-  export let isOnboarding: boolean = false;
   export let gitlabToken: string;
   export let repoOwner: string;
   export let repoName: string;
   export let branch: string = 'main';
   export let onSave: () => void;
   export let onInput: () => void;
-  export let projectId: string | null = null;
-  export let projectSettings: Record<string, { repoName: string; branch: string }> = {};
   export let buttonDisabled: boolean = false;
-  let gitlabUrl: string = '';
+  
+  // Store last used values
+  let lastProjectUrl: string = '';
+  let lastBranch: string = 'main';
 
   let isValidatingToken = false;
   let isTokenValid: boolean | null = null;
@@ -59,25 +59,17 @@
     }
   }
 
-  function handleGitlabUrlInput(event: Event) {
-    const url = (event.target as HTMLInputElement).value;
-    gitlabUrl = url;
-    const parsed = parseGitLabUrl(url);
-    
-    if (parsed) {
-      repoOwner = parsed.owner;
-      repoName = parsed.name;
-      onInput();
-    }
-  }
+  // URL input handling moved to commit flow
 
   onMount(async () => {
-    // Load last permission check timestamp from storage
-    const storage = await chrome.storage.local.get('lastPermissionCheck');
+    // Load last permission check timestamp and last used values
+    const storage = await chrome.storage.local.get(['lastPermissionCheck', 'lastProjectUrl', 'lastBranch']);
     lastPermissionCheck = storage.lastPermissionCheck || null;
+    lastProjectUrl = storage.lastProjectUrl || '';
+    lastBranch = storage.lastBranch || 'main';
     previousToken = gitlabToken;
 
-    // If we have initial valid settings, validate and load repos
+    // If we have initial valid settings, validate token
     if (gitlabToken && repoOwner) {
       await validateSettings();
     }
@@ -98,7 +90,14 @@
       isTokenValid = result.isValid;
       validationError = result.error || null;
 
-      // Token validation successful
+      // Load last used values if validation successful
+      if (result.isValid && lastProjectUrl) {
+        const parsed = parseGitLabUrl(lastProjectUrl);
+        if (parsed) {
+          repoName = parsed.name;
+          branch = lastBranch;
+        }
+      }
     } catch (error) {
       console.error('Error validating settings:', error);
       isTokenValid = false;
@@ -130,13 +129,10 @@
     }, 500) as unknown as number;
   }
 
-  function handleOwnerInput() {
+  async function handleOwnerInput() {
     onInput();
     if (gitlabToken) {
       handleTokenInput();
-      if (repoName) {
-        gitlabUrl = `https://gitlab.com/${repoOwner}/${repoName}.git`;
-      }
     }
   }
 
@@ -226,10 +222,7 @@
     onSave();
   };
 
-  $: if (!isOnboarding && projectId && projectSettings[projectId]) {
-    repoName = projectSettings[projectId].repoName;
-    branch = projectSettings[projectId].branch;
-  }
+  // Project settings removed - using last used values instead
 </script>
 
 <div class="space-y-6">
@@ -383,45 +376,7 @@
       />
     </div>
 
-    <div class="space-y-2">
-      <Label for="gitlabUrl" class="text-slate-200">
-        GitLab Repository URL
-        <span class="text-sm text-slate-400 ml-2">(e.g., https://gitlab.com/username/repo.git)</span>
-      </Label>
-      <div class="relative">
-        <Input
-          type="text"
-          id="gitlabUrl"
-          on:input={handleGitlabUrlInput}
-          placeholder="https://gitlab.com/username/repo.git"
-          bind:value={gitlabUrl}
-          class="bg-slate-800 border-slate-700 text-slate-200 placeholder:text-slate-500"
-        />
-
-      </div>
-    </div>
-
-    {#if !isOnboarding}
-      <div class="space-y-2">
-        <Label for="branch" class="text-slate-200">
-          Branch
-          <span class="text-sm text-slate-400 ml-2">(Default: main)</span>
-        </Label>
-        <Input
-          type="text"
-          id="branch"
-          bind:value={branch}
-          on:input={onInput}
-          placeholder="main"
-          class="bg-slate-800 border-slate-700 text-slate-200 placeholder:text-slate-500"
-        />
-        {#if !branch}
-          <p class="text-sm text-slate-400">
-            ℹ️ Using default branch: main
-          </p>
-        {/if}
-      </div>
-    {/if}
+    <!-- URL and branch inputs removed from settings - will be handled during commit -->
 
     <div class="flex justify-end">
       <Button type="submit" disabled={buttonDisabled || !isTokenValid}>Save Settings</Button>

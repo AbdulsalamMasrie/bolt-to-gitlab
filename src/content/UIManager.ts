@@ -25,6 +25,13 @@ export class UIManager {
     this.initializeUI();
     this.setupClickListeners();
     this.setupMutationObserver();
+
+    // Listen for settings changes
+    chrome.runtime.onMessage.addListener((message) => {
+      if (message.type === 'GITLAB_SETTINGS_CHANGED') {
+        this.updateButtonState(true);
+      }
+    });
   }
 
   static getInstance(messageHandler?: MessageHandler): UIManager {

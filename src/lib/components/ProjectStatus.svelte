@@ -2,6 +2,7 @@
   import { createEventDispatcher, onMount } from 'svelte';
   import { Alert, AlertTitle, AlertDescription } from './ui/alert';
   import { GitLabService } from '../../services/GitLabService';
+  import { SettingsService } from '../../services/settings';
 
   export let projectId: string;
   export let gitLabUsername: string;
@@ -25,10 +26,20 @@
 
   export const getProjectStatus = async () => {
     try {
-      const gitlabService = new GitLabService(token, window.localStorage.getItem('gitlab_base_url') || 'https://gitlab.com');
+      const settings = await SettingsService.getSettings();
+      if (!settings.isSettingsValid || !settings.gitLabSettings) {
+        throw new Error('Invalid GitLab settings');
+      }
+
+      const gitlabService = new GitLabService(
+        settings.gitLabSettings.gitlabToken,
+        settings.gitLabSettings.baseUrl
+      );
 
       // Get repo info
-      const repoInfo = await gitlabService.validateProjectUrl(`${window.localStorage.getItem('gitlab_base_url') || 'https://gitlab.com'}/${gitLabUsername}/${repoName}`);
+      const repoInfo = await gitlabService.validateProjectUrl(
+        `${settings.gitLabSettings.baseUrl}/${gitLabUsername}/${repoName}`
+      );
       repoExists = repoInfo.isValid;
       isLoading.repoStatus = false;
 

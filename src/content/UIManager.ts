@@ -1,4 +1,5 @@
 import type { UploadStatusState } from '$lib/types';
+import { GitLabService } from '../services/GitLabService';
 import { SettingsService } from '../services/settings';
 import type { MessageHandler } from './MessageHandler';
 import UploadStatus from './UploadStatus.svelte';
@@ -188,9 +189,33 @@ export class UIManager {
     console.log('Handling GitLab button click');
     const settings = await SettingsService.getSettings();
     
-    // Only check basic settings validity
-    if (!settings.isSettingsValid) {
+    // Check all required settings
+    if (!settings.isSettingsValid || !settings.gitLabSettings) {
       this.showSettingsNotification();
+      return;
+    }
+
+    // Validate settings with GitLab
+    try {
+      const gitlabService = new GitLabService(
+        settings.gitLabSettings.gitlabToken,
+        settings.gitLabSettings.baseUrl
+      );
+      const result = await gitlabService.validateTokenAndUser(settings.gitLabSettings.repoOwner);
+      if (!result.isValid) {
+        this.showNotification({
+          type: 'error',
+          message: result.error || 'Invalid GitLab settings',
+          duration: 5000
+        });
+        return;
+      }
+    } catch (error) {
+      this.showNotification({
+        type: 'error',
+        message: 'Failed to validate GitLab settings',
+        duration: 5000
+      });
       return;
     }
 

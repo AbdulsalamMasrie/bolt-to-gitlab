@@ -69,13 +69,14 @@ export class SettingsService {
 
   static async initializeGitLabSettings(): Promise<void> {
     try {
-      const settings = await chrome.storage.sync.get(['repoOwner', 'projectSettings']);
+      const settings = await chrome.storage.sync.get(['repoOwner', 'baseUrl', 'projectSettings']);
       
       // Initialize with empty settings
       const encryptedToken = await this.encryptToken('');  // Empty token for security
       await chrome.storage.sync.set({
         gitlabToken: encryptedToken,
         repoOwner: settings.repoOwner || '',
+        baseUrl: settings.baseUrl || 'https://gitlab.com',
         projectSettings: settings.projectSettings || {}
       });
     } catch (error) {
@@ -87,7 +88,7 @@ export class SettingsService {
   // Main settings getter
   static async getSettings(): Promise<SettingsCheckResult> {
     try {
-      const settings = await chrome.storage.sync.get(['gitlabToken', 'repoOwner', 'projectSettings']);
+      const settings = await chrome.storage.sync.get(['gitlabToken', 'repoOwner', 'baseUrl', 'projectSettings']);
       let decryptedToken: string | undefined;
 
       if (settings.gitlabToken) {
@@ -99,13 +100,14 @@ export class SettingsService {
         }
       }
 
-      const isSettingsValid = Boolean(decryptedToken && settings.repoOwner);
+      const isSettingsValid = Boolean(decryptedToken && settings.repoOwner && settings.baseUrl);
 
       return {
         isSettingsValid,
         gitLabSettings: isSettingsValid ? {
           gitlabToken: decryptedToken!,
           repoOwner: settings.repoOwner,
+          baseUrl: settings.baseUrl || 'https://gitlab.com',
           projectSettings: settings.projectSettings || {},
         } : undefined,
       };

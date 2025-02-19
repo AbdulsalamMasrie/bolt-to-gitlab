@@ -58,28 +58,28 @@
             'GET',
             `/projects/${encodeURIComponent(`${gitLabUsername}/${repoName}`)}/repository/commits?per_page=1`
           );
-        if (commits[0]?.commit) {
-          latestCommit = {
-            date: commits[0].commit.committer.date,
-            message:
-              commits[0].commit.message.split('\n')[0].slice(0, 50) +
-              (commits[0].commit.message.length > 50 ? '...' : ''),
-          };
+          if (commits[0]?.commit) {
+            latestCommit = {
+              date: commits[0].commit.committer.date,
+              message:
+                commits[0].commit.message.split('\n')[0].slice(0, 50) +
+                (commits[0].commit.message.length > 50 ? '...' : ''),
+            };
+          }
+          isLoading.latestCommit = false;
+        } catch (error) {
+          console.error('Error fetching repo details:', error);
+          repoExists = false;
+          isPrivate = null;
+          latestCommit = null;
+          // Reset loading states on error
+          Object.keys(isLoading).forEach((key) => (isLoading[key as keyof typeof isLoading] = false));
         }
-        isLoading.latestCommit = false;
       } else {
         isLoading.visibility = false;
         isLoading.commits = false;
         isLoading.latestCommit = false;
       }
-    } catch (error) {
-      console.error('Error fetching repo details:', error);
-      repoExists = false;
-      isPrivate = null;
-      latestCommit = null;
-      // Reset loading states on error
-      Object.keys(isLoading).forEach((key) => (isLoading[key as keyof typeof isLoading] = false));
-    }
   };
 
   onMount(async () => {

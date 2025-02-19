@@ -35,7 +35,7 @@ Bolt to GitLab is a Chrome extension that automates the process of capturing ZIP
 
 1. Clone the repository:
 ```bash
-git clone https://gitlab.com/mamertofabian/bolt-to-gitlab.git
+git clone https://gitlab.com/AbdulsalamMasrie/bolt-to-gitlab.git
 cd bolt-to-gitlab
 ```
 

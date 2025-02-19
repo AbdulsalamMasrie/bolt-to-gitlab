@@ -280,9 +280,9 @@
 
       await chrome.storage.sync.set(settings);
       hasInitialSettings = true;
+      isSettingsValid = true;
       status = 'Settings saved successfully!';
       hasStatus = true;
-      checkSettingsValidity();
       setTimeout(() => {
         status = '';
         hasStatus = false;

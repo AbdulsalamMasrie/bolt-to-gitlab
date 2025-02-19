@@ -88,17 +88,17 @@
   });
 
   async function validateSettings() {
+    buttonDisabled = true;
+    
     if (!gitlabToken || !repoOwner || !baseUrl) {
       isTokenValid = false;
       validationError = 'Missing required settings';
-      buttonDisabled = true;
       return;
     }
 
     try {
       isValidatingToken = true;
       validationError = null;
-      buttonDisabled = true;
       const gitlabService = new GitLabService(gitlabToken, baseUrl);
       const result = await gitlabService.validateTokenAndUser(repoOwner);
       isTokenValid = result.isValid;
@@ -116,13 +116,8 @@
     } catch (error) {
       console.error('Error validating settings:', error);
       isTokenValid = false;
-      if (error instanceof Error) {
-        // Extract GitLab API error message if available
-        const gitlabError = error as any;
-        validationError = gitlabError.originalMessage || gitlabError.message || 'GitLab token validation failed';
-      } else {
-        validationError = 'GitLab token validation failed';
-      }
+      validationError = error instanceof Error ? error.message : 'GitLab token validation failed';
+      buttonDisabled = true;
     } finally {
       isValidatingToken = false;
     }
@@ -148,6 +143,13 @@
   async function handleOwnerInput() {
     onInput();
     if (gitlabToken) {
+      handleTokenInput();
+    }
+  }
+
+  async function handleBaseUrlInput() {
+    onInput();
+    if (gitlabToken && repoOwner) {
       handleTokenInput();
     }
   }
@@ -471,6 +473,7 @@
         type="text"
         id="baseUrl"
         bind:value={baseUrl}
+        on:input={handleBaseUrlInput}
         placeholder="https://gitlab.com"
         class="bg-slate-800 border-slate-700 text-slate-200 placeholder:text-slate-500"
       />

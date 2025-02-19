@@ -36,27 +36,36 @@
       );
 
       // Get repo info
-      const repoInfo = await gitlabService.validateProjectUrl(
-        `${settings.gitLabSettings.baseUrl}/${gitLabUsername}/${repoName}`
-      );
-      repoExists = repoInfo.isValid;
-      isLoading.repoStatus = false;
-
-      if (!repoExists) {
-        isLoading.visibility = false;
-        isLoading.commits = false;
-        isLoading.latestCommit = false;
-        return;
-      }
-
+      let repoInfo;
       try {
-        // Get project details including visibility
-        const projectDetails = await gitlabService.request(
+        repoInfo = await gitlabService.request(
           'GET',
           `/projects/${encodeURIComponent(`${gitLabUsername}/${repoName}`)}`
         );
-        isPrivate = projectDetails.visibility === 'private';
-        isLoading.visibility = false;
+        repoExists = Boolean(repoInfo && !('error' in repoInfo));
+        isLoading.repoStatus = false;
+
+        if (repoExists) {
+          // Get project details including visibility
+          isPrivate = repoInfo.visibility === 'private';
+          isLoading.visibility = false;
+        } else {
+          isLoading.visibility = false;
+          isLoading.commits = false;
+          isLoading.latestCommit = false;
+          return;
+        }
+      } catch (error) {
+        if (error.status === 404) {
+          repoExists = false;
+          isLoading.repoStatus = false;
+          isLoading.visibility = false;
+          isLoading.commits = false;
+          isLoading.latestCommit = false;
+          return;
+        }
+        throw error;
+      }
 
         // Get latest commit
         const commits = await gitlabService.request(
@@ -86,6 +95,10 @@
       latestCommit = null;
       // Reset loading states on error
       Object.keys(isLoading).forEach((key) => (isLoading[key as keyof typeof isLoading] = false));
+      // Don't throw error for 404 - it's an expected state
+      if (error.status !== 404) {
+        throw error;
+      }
     }
   };
 

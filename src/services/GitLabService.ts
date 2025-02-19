@@ -126,22 +126,36 @@ export class GitLabService extends BaseGitService {
       const urlObj = new URL(url);
       const baseUrlObj = new URL(this.customBaseUrl || DEFAULT_GITLAB_BASE_URL);
       
-      if (urlObj.hostname !== baseUrlObj.hostname) {
+      // Handle both web and API URLs by comparing hostname without api prefix
+      const normalizedUrlHost = urlObj.hostname.replace(/^api\./, '');
+      const normalizedBaseHost = baseUrlObj.hostname.replace(/^api\./, '');
+      
+      if (normalizedUrlHost !== normalizedBaseHost) {
         return { isValid: false, error: 'Repository URL must match GitLab instance URL' };
       }
       
-      const parts = urlObj.pathname.replace(/\.git$/, '').split('/').filter(Boolean);
+      // Extract owner and repo from URL path
+      const parts = urlObj.pathname
+        .replace(/\.git$/, '')
+        .replace(/^\/api\/v4\/projects\//, '')
+        .split('/')
+        .filter(Boolean);
+
       if (parts.length < 2) {
         return { isValid: false, error: 'Invalid repository URL format' };
       }
 
       const [owner, repo] = parts;
       try {
+        // Always use API endpoint to validate
         await this.request('GET', `/projects/${encodeURIComponent(`${owner}/${repo}`)}`);
         return { isValid: true };
       } catch (error: any) {
         if (error.status === 404) {
           return { isValid: false, error: 'Repository not found' };
+        }
+        if (error.status === 401) {
+          return { isValid: false, error: 'Invalid GitLab token or insufficient permissions' };
         }
         throw error;
       }

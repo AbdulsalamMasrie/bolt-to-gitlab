@@ -49,12 +49,56 @@
   let hasDeletedTempRepo = false;
   let hasUsedTempRepoName = false;
   let projectStatusRef: ProjectStatus;
+  const messageQueue: Array<{type: string, data: any}> = [];
+  const MAX_RETRIES = 3;
+  const RETRY_DELAY = 1000;
+  let retryCount = 0;
 
   interface TempRepoMetadata {
     originalRepo: string;
     tempRepo: string;
     createdAt: number;
     owner: string;
+  }
+
+  function sendMessage(type: string, data: any) {
+    if (port) {
+      try {
+        port.postMessage({ type, data });
+      } catch (error) {
+        console.error('Error sending message:', error);
+        messageQueue.push({ type, data });
+      }
+    } else {
+      messageQueue.push({ type, data });
+    }
+  }
+
+  async function connectToBackground(): Promise<chrome.runtime.Port | null> {
+    try {
+      const port = chrome.runtime.connect({ name: 'popup' });
+      
+      // Set up disconnect handler
+      port.onDisconnect.addListener(() => {
+        const error = chrome.runtime.lastError;
+        console.error('Port disconnected:', error?.message);
+        if (retryCount < MAX_RETRIES) {
+          retryCount++;
+          setTimeout(connectToBackground, RETRY_DELAY);
+        }
+      });
+      
+      return port;
+    } catch (error) {
+      console.error('Connection failed:', error);
+      if (retryCount < MAX_RETRIES) {
+        retryCount++;
+        return new Promise(resolve => 
+          setTimeout(() => resolve(connectToBackground()), RETRY_DELAY)
+        );
+      }
+      return null;
+    }
   }
 
   async function validateGitLabToken(token: string, username: string): Promise<boolean> {
@@ -87,8 +131,26 @@
     // Add dark mode to the document
     document.documentElement.classList.add('dark');
 
-    // Connect to background service
-    port = chrome.runtime.connect({ name: 'popup' });
+    // Initialize connection with retry logic
+    port = await connectToBackground();
+    if (!port) {
+      console.error('Failed to establish connection after retries');
+      status = 'Error connecting to extension. Please refresh the page.';
+      hasStatus = true;
+      isSettingsValid = false;
+    }
+
+    // Process queued messages when connection is established
+    if (port && messageQueue.length > 0) {
+      messageQueue.forEach(msg => {
+        try {
+          port.postMessage(msg);
+        } catch (error) {
+          console.error('Error sending queued message:', error);
+        }
+      });
+      messageQueue.length = 0;
+    }
 
     try {
       gitlabSettings = (await chrome.storage.sync.get([
@@ -170,12 +232,9 @@
 
   async function handleDeleteTempRepo() {
     if (tempRepoData) {
-      port.postMessage({
-        type: 'DELETE_TEMP_REPO',
-        data: {
-          owner: tempRepoData.owner,
-          repo: tempRepoData.tempRepo,
-        },
+      sendMessage('DELETE_TEMP_REPO', {
+        owner: tempRepoData.owner,
+        repo: tempRepoData.tempRepo,
       });
       hasDeletedTempRepo = true;
 

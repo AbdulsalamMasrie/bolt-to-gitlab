@@ -47,20 +47,35 @@ export class SettingsService {
 
   private static async decryptToken(encryptedData: string): Promise<string> {
     try {
-      const { encrypted, iv, key } = JSON.parse(encryptedData);
-      const importedKey = await crypto.subtle.importKey(
-        'jwk',
-        key,
-        { name: 'AES-GCM', length: 256 },
-        true,
-        ['encrypt', 'decrypt']
-      );
-      const decrypted = await crypto.subtle.decrypt(
-        { name: 'AES-GCM', iv: new Uint8Array(iv) },
-        importedKey,
-        new Uint8Array(encrypted)
-      );
-      return new TextDecoder().decode(decrypted);
+      // Check if the token is a raw GitLab token (starts with 'glpat-')
+      if (encryptedData.startsWith('glpat-')) {
+        return encryptedData;
+      }
+
+      // Try to parse as encrypted data
+      try {
+        const { encrypted, iv, key } = JSON.parse(encryptedData);
+        const importedKey = await crypto.subtle.importKey(
+          'jwk',
+          key,
+          { name: 'AES-GCM', length: 256 },
+          true,
+          ['encrypt', 'decrypt']
+        );
+        const decrypted = await crypto.subtle.decrypt(
+          { name: 'AES-GCM', iv: new Uint8Array(iv) },
+          importedKey,
+          new Uint8Array(encrypted)
+        );
+        return new TextDecoder().decode(decrypted);
+      } catch (parseError) {
+        console.error('Error parsing encrypted data:', parseError);
+        // If parsing fails but the token looks valid, return it as-is
+        if (encryptedData.length > 0) {
+          return encryptedData;
+        }
+        return '';
+      }
     } catch (error) {
       console.error('Error decrypting token:', error);
       return '';

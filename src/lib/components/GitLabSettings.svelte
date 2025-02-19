@@ -16,6 +16,8 @@
   export let onInput: () => void;
   export let buttonDisabled: boolean = true;
   
+  import type { ProjectUrlHistory } from '$lib/types';
+  
   // Store project URL history
   let projectUrlHistory: ProjectUrlHistory[] = [];
   let selectedUrl: string = '';
@@ -90,10 +92,20 @@
   async function validateSettings() {
     buttonDisabled = true;
     
-    if (!gitlabToken || !repoOwner || !baseUrl) {
+    if (!gitlabToken) {
       isTokenValid = false;
-      validationError = 'Missing required settings';
+      validationError = 'GitLab token is required';
       return;
+    }
+    
+    if (!repoOwner) {
+      isTokenValid = false;
+      validationError = 'Repository owner (GitLab username) is required';
+      return;
+    }
+    
+    if (!baseUrl) {
+      baseUrl = 'https://gitlab.com'; // Set default if not provided
     }
 
     try {
@@ -226,8 +238,11 @@
 
     try {
       // Ensure we have the minimum required settings
-      if (!gitlabToken || !repoOwner) {
-        throw new Error('Missing required settings');
+      if (!gitlabToken) {
+        throw new Error('GitLab token is required');
+      }
+      if (!repoOwner) {
+        throw new Error('Repository owner (GitLab username) is required');
       }
 
       // Validate token and username before saving

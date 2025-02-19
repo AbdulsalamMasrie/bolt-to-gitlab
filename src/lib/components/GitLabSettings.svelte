@@ -149,7 +149,7 @@
   }
 
   async function checkTokenPermissions() {
-    if (!gitlabToken || isCheckingPermissions) return;
+    if (!gitlabToken || !baseUrl || isCheckingPermissions) return;
 
     isCheckingPermissions = true;
     permissionError = null;
@@ -161,7 +161,7 @@
     };
 
     try {
-      const gitlabService = new GitLabService(gitlabToken);
+      const gitlabService = new GitLabService(gitlabToken, baseUrl);
 
       const result = await gitlabService.verifyTokenPermissions(
         repoOwner,

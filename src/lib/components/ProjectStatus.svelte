@@ -35,10 +35,9 @@
         settings.gitLabSettings.baseUrl
       );
 
-      // Get repo info
-      let repoInfo;
+      // Get repo info and details
       try {
-        repoInfo = await gitlabService.request(
+        const repoInfo = await gitlabService.request(
           'GET',
           `/projects/${encodeURIComponent(`${gitLabUsername}/${repoName}`)}`
         );
@@ -49,11 +48,31 @@
           // Get project details including visibility
           isPrivate = repoInfo.visibility === 'private';
           isLoading.visibility = false;
+
+          // Get latest commit
+          try {
+            const commits = await gitlabService.request(
+              'GET',
+              `/projects/${encodeURIComponent(`${gitLabUsername}/${repoName}`)}/repository/commits?per_page=1`
+            );
+            if (commits[0]?.commit) {
+              latestCommit = {
+                date: commits[0].commit.committer.date,
+                message:
+                  commits[0].commit.message.split('\n')[0].slice(0, 50) +
+                  (commits[0].commit.message.length > 50 ? '...' : ''),
+              };
+            }
+            isLoading.latestCommit = false;
+          } catch (error) {
+            console.error('Error fetching commit details:', error);
+            latestCommit = null;
+            isLoading.latestCommit = false;
+          }
         } else {
           isLoading.visibility = false;
           isLoading.commits = false;
           isLoading.latestCommit = false;
-          return;
         }
       } catch (error) {
         if (error.status === 404) {
@@ -65,28 +84,6 @@
           return;
         }
         throw error;
-      }
-
-        // Get latest commit
-        const commits = await gitlabService.request(
-          'GET',
-          `/projects/${encodeURIComponent(`${gitLabUsername}/${repoName}`)}/repository/commits?per_page=1`
-        );
-        if (commits[0]?.commit) {
-          latestCommit = {
-            date: commits[0].commit.committer.date,
-            message:
-              commits[0].commit.message.split('\n')[0].slice(0, 50) +
-              (commits[0].commit.message.length > 50 ? '...' : ''),
-          };
-        }
-        isLoading.latestCommit = false;
-      } catch (error) {
-        console.error('Error fetching repo details:', error);
-        isPrivate = null;
-        latestCommit = null;
-        // Reset loading states on error
-        Object.keys(isLoading).forEach((key) => (isLoading[key as keyof typeof isLoading] = false));
       }
     } catch (error) {
       console.error('Error fetching repo details:', error);

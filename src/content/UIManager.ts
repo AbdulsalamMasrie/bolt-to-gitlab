@@ -220,17 +220,18 @@ export class UIManager {
         return;
       }
 
-      // Then validate repository if URL is provided
-      if (settings.gitLabSettings.projectSettings?.url) {
-        const repoResult = await gitlabService.validateProjectUrl(settings.gitLabSettings.projectSettings.url);
-        if (!repoResult.isValid) {
-          this.showNotification({
-            type: 'error',
-            message: repoResult.error || 'Invalid repository URL',
-            duration: 5000
-          });
-          return;
-        }
+      // Then validate repository URL from confirmation dialog
+      const { confirmed, url } = await this.showGitLabConfirmation();
+      if (!confirmed || !url) return;
+
+      const repoResult = await gitlabService.validateProjectUrl(url);
+      if (!repoResult.isValid) {
+        this.showNotification({
+          type: 'error',
+          message: repoResult.error || 'Invalid repository URL',
+          duration: 5000
+        });
+        return;
       }
     } catch (error) {
       this.showNotification({

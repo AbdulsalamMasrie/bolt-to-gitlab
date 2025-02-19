@@ -97,7 +97,23 @@ export class ContentManager {
   }
 
   private handleDisconnection(): void {
-    if (this.isReconnecting || this.reconnectAttempts >= this.MAX_RECONNECT_ATTEMPTS) {
+    // If we're already at max attempts or already reconnecting, don't try again
+    if (this.reconnectAttempts >= this.MAX_RECONNECT_ATTEMPTS) {
+      console.log('Max reconnection attempts reached');
+      this.cleanup();
+      this.notifyUserOfError();
+      return;
+    }
+
+    if (this.isReconnecting) {
+      return;
+    }
+
+    // Check if extension context is still valid before scheduling reconnection
+    if (!chrome.runtime || !chrome.runtime.id) {
+      console.log('Extension context is invalid, not attempting reconnection');
+      this.cleanup();
+      this.notifyUserOfExtensionReload();
       return;
     }
 
@@ -112,15 +128,36 @@ export class ContentManager {
 
   private reconnect(): void {
     try {
-      this.initializeConnection();
-      if (this.port) {
-        this.messageHandler?.updatePort(this.port);
-        this.setupEventListeners();
-        console.log('Successfully reconnected');
+      // Don't attempt reconnection if we're already at max attempts
+      if (this.reconnectAttempts >= this.MAX_RECONNECT_ATTEMPTS) {
+        console.log('Max reconnection attempts reached, stopping reconnection');
+        this.cleanup();
+        this.notifyUserOfError();
+        return;
+      }
+
+      // Check if extension context is still valid before attempting reconnection
+      if (chrome.runtime && chrome.runtime.id) {
+        this.initializeConnection();
+        if (this.port) {
+          this.messageHandler?.updatePort(this.port);
+          this.setupEventListeners();
+          console.log('Successfully reconnected');
+          this.isReconnecting = false;
+          this.reconnectAttempts = 0;
+        }
+      } else {
+        console.log('Extension context is invalid, stopping reconnection attempts');
+        this.cleanup();
+        this.notifyUserOfExtensionReload();
       }
     } catch (error) {
       console.error('Reconnection failed:', error);
-      this.handleDisconnection();
+      if (this.isExtensionContextInvalidated(error)) {
+        this.handleExtensionContextInvalidated();
+      } else {
+        this.handleDisconnection();
+      }
     }
   }
 

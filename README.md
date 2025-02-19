@@ -9,8 +9,8 @@
     <a href="https://chrome.google.com/webstore/detail/pikdepbilbnnpgdkdaaoeekgflljmame">
       <img src="https://img.shields.io/chrome-web-store/v/pikdepbilbnnpgdkdaaoeekgflljmame" alt="Chrome Web Store">
     </a>
-    <a href="https://gitlab.com/mamertofabian/bolt-to-gitlab/blob/main/LICENSE">
-      <img src="https://img.shields.io/gitlab/license/mamertofabian/bolt-to-gitlab" alt="License">
+    <a href="https://gitlab.com/AbdulsalamMasrie/bolt-to-gitlab/blob/main/LICENSE">
+      <img src="https://img.shields.io/gitlab/license/AbdulsalamMasrie/bolt-to-gitlab" alt="License">
     </a>
   </p>
 </div>
@@ -74,7 +74,7 @@ To try the latest development version:
 1. Clone and install:
 
    ```bash
-  git clone https://gitlab.com/mamertofabian/bolt-to-gitlab.git
+  git clone https://gitlab.com/AbdulsalamMasrie/bolt-to-gitlab.git
   cd bolt-to-gitlab
    npm install
    ```
@@ -150,7 +150,7 @@ If you want to modify the extension or contribute to its development:
 2. Clone and install:
 
    ```bash
-  git clone https://gitlab.com/mamertofabian/bolt-to-gitlab.git
+  git clone https://gitlab.com/AbdulsalamMasrie/bolt-to-gitlab.git
   cd bolt-to-gitlab
    npm install
    ```
@@ -243,7 +243,7 @@ See our [Contributing Guide](#contributing) for more details.
 
 ### Report Issues
 
-For bugs or feature requests, please [open an issue](https://gitlab.com/mamertofabian/bolt-to-gitlab/issues) on the GitLab repository.
+For bugs or feature requests, please [open an issue](https://gitlab.com/AbdulsalamMasrie/bolt-to-gitlab/issues) on the GitLab repository.
 
 ### Support the Project
 

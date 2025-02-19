@@ -498,9 +498,13 @@ export class UIManager {
   }
 
   public updateButtonState(isValid: boolean) {
+    console.log('Updating button state:', isValid);
     if (this.uploadButton) {
-      this.uploadButton.classList.toggle('disabled', !isValid);
-      // Update other button states as needed
+      try {
+        (this.uploadButton as HTMLButtonElement).disabled = !isValid;
+      } catch (error) {
+        console.error('Failed to update button state:', error);
+      }
     }
   }
 

@@ -2,6 +2,7 @@
   import { createEventDispatcher, onMount } from 'svelte';
   import { Alert, AlertTitle, AlertDescription } from './ui/alert';
   import { GitLabService } from '../../services/GitLabService';
+  import { SettingsService } from '../../services/settings';
 
   export let projectId: string;
   export let gitLabUsername: string;
@@ -25,23 +26,38 @@
 
   export const getProjectStatus = async () => {
     try {
-      const gitlabService = new GitLabService(token);
+      const settings = await SettingsService.getSettings();
+      if (!settings.isSettingsValid || !settings.gitLabSettings) {
+        throw new Error('Invalid GitLab settings');
+      }
+
+      const gitlabService = new GitLabService(
+        settings.gitLabSettings.gitlabToken,
+        settings.gitLabSettings.baseUrl
+      );
 
       // Get repo info
-      const repoInfo = await gitlabService.getRepoInfo(gitLabUsername, repoName);
-      repoExists = repoInfo.exists;
+      const repoInfo = await gitlabService.validateProjectUrl(
+        `${settings.gitLabSettings.baseUrl}/${gitLabUsername}/${repoName}`
+      );
+      repoExists = repoInfo.isValid;
       isLoading.repoStatus = false;
 
       if (repoExists) {
-        // Get visibility
-        isPrivate = repoInfo.visibility === 'private';
-        isLoading.visibility = false;
+        try {
+          // Get project details including visibility
+          const projectDetails = await gitlabService.request(
+            'GET',
+            `/projects/${encodeURIComponent(`${gitLabUsername}/${repoName}`)}`
+          );
+          isPrivate = projectDetails.visibility === 'private';
+          isLoading.visibility = false;
 
-        // Get latest commit
-        const commits = await gitlabService.request(
-          'GET',
-          `/projects/${encodeURIComponent(`${gitLabUsername}/${repoName}`)}/repository/commits?per_page=1`
-        );
+          // Get latest commit
+          const commits = await gitlabService.request(
+            'GET',
+            `/projects/${encodeURIComponent(`${gitLabUsername}/${repoName}`)}/repository/commits?per_page=1`
+          );
         if (commits[0]?.commit) {
           latestCommit = {
             date: commits[0].commit.committer.date,
@@ -57,7 +73,10 @@
         isLoading.latestCommit = false;
       }
     } catch (error) {
-      console.log('Error fetching repo details:', error);
+      console.error('Error fetching repo details:', error);
+      repoExists = false;
+      isPrivate = null;
+      latestCommit = null;
       // Reset loading states on error
       Object.keys(isLoading).forEach((key) => (isLoading[key as keyof typeof isLoading] = false));
     }

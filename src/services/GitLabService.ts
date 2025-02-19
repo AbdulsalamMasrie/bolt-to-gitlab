@@ -124,8 +124,10 @@ export class GitLabService extends BaseGitService {
   public async validateProjectUrl(url: string): Promise<{ isValid: boolean; error?: string }> {
     try {
       const urlObj = new URL(url);
-      if (!urlObj.hostname.includes('gitlab')) {
-        return { isValid: false, error: 'Invalid GitLab URL' };
+      const baseUrlObj = new URL(this.customBaseUrl || DEFAULT_GITLAB_BASE_URL);
+      
+      if (urlObj.hostname !== baseUrlObj.hostname) {
+        return { isValid: false, error: 'Repository URL must match GitLab instance URL' };
       }
       
       const parts = urlObj.pathname.replace(/\.git$/, '').split('/').filter(Boolean);

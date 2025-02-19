@@ -208,11 +208,27 @@ export class UIManager {
         settings.gitLabSettings.gitlabToken,
         settings.gitLabSettings.baseUrl
       );
-      const result = await gitlabService.validateTokenAndUser(settings.gitLabSettings.repoOwner);
-      if (!result.isValid) {
+
+      // First validate token and user
+      const tokenResult = await gitlabService.validateTokenAndUser(settings.gitLabSettings.repoOwner);
+      if (!tokenResult.isValid) {
         this.showNotification({
           type: 'error',
-          message: result.error || 'Invalid GitLab settings',
+          message: tokenResult.error || 'Invalid GitLab settings',
+          duration: 5000
+        });
+        return;
+      }
+
+      // Then validate repository URL from confirmation dialog
+      const { confirmed, url } = await this.showGitLabConfirmation();
+      if (!confirmed || !url) return;
+
+      const repoResult = await gitlabService.validateProjectUrl(url);
+      if (!repoResult.isValid) {
+        this.showNotification({
+          type: 'error',
+          message: repoResult.error || 'Invalid repository URL',
           duration: 5000
         });
         return;

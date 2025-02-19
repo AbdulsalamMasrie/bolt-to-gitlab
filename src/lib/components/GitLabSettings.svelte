@@ -149,7 +149,7 @@
   }
 
   async function checkTokenPermissions() {
-    if (!gitlabToken || isCheckingPermissions) return;
+    if (!gitlabToken || !baseUrl || isCheckingPermissions) return;
 
     isCheckingPermissions = true;
     permissionError = null;
@@ -161,7 +161,7 @@
     };
 
     try {
-      const gitlabService = new GitLabService(gitlabToken);
+      const gitlabService = new GitLabService(gitlabToken, baseUrl);
 
       const result = await gitlabService.verifyTokenPermissions(
         repoOwner,
@@ -280,9 +280,16 @@
 
       await chrome.storage.sync.set(settings);
       hasInitialSettings = true;
+      isSettingsValid = true;
+
+      // Notify UI of settings change
+      chrome.runtime.sendMessage({
+        type: 'GITLAB_SETTINGS_CHANGED',
+        data: { isValid: true }
+      });
+
       status = 'Settings saved successfully!';
       hasStatus = true;
-      checkSettingsValidity();
       setTimeout(() => {
         status = '';
         hasStatus = false;

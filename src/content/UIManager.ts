@@ -25,6 +25,13 @@ export class UIManager {
     this.initializeUI();
     this.setupClickListeners();
     this.setupMutationObserver();
+
+    // Listen for settings changes
+    chrome.runtime.onMessage.addListener((message) => {
+      if (message.type === 'GITLAB_SETTINGS_CHANGED') {
+        this.updateButtonState(true);
+      }
+    });
   }
 
   static getInstance(messageHandler?: MessageHandler): UIManager {
@@ -491,9 +498,13 @@ export class UIManager {
   }
 
   public updateButtonState(isValid: boolean) {
+    console.log('Updating button state:', isValid);
     if (this.uploadButton) {
-      this.uploadButton.classList.toggle('disabled', !isValid);
-      // Update other button states as needed
+      try {
+        (this.uploadButton as HTMLButtonElement).disabled = !isValid;
+      } catch (error) {
+        console.error('Failed to update button state:', error);
+      }
     }
   }
 

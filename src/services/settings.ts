@@ -106,6 +106,7 @@ export class SettingsService {
         gitLabSettings: isSettingsValid ? {
           gitlabToken: decryptedToken!,
           repoOwner: settings.repoOwner,
+          baseUrl: settings.baseUrl || 'https://gitlab.com',
           projectSettings: settings.projectSettings || {},
         } : undefined,
       };

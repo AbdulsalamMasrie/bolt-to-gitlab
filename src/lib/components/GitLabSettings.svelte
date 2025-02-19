@@ -88,16 +88,16 @@
   });
 
   async function validateSettings() {
-    if (!gitlabToken) {
+    if (!gitlabToken || !repoOwner || !baseUrl) {
       isTokenValid = null;
-      validationError = null;
+      validationError = 'Missing required settings';
       return;
     }
 
     try {
       isValidatingToken = true;
       validationError = null;
-      const gitlabService = new GitLabService(gitlabToken);
+      const gitlabService = new GitLabService(gitlabToken, baseUrl);
       const result = await gitlabService.validateTokenAndUser(repoOwner);
       isTokenValid = result.isValid;
       validationError = result.error || null;

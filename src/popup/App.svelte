@@ -90,20 +90,30 @@
     // Connect to background service
     port = chrome.runtime.connect({ name: 'popup' });
 
-    gitlabSettings = (await chrome.storage.sync.get([
-      'gitlabToken',
-      'repoOwner',
-      'projectSettings',
-    ])) as GitLabSettingsInterface;
-
-    gitlabToken = gitlabSettings.gitlabToken || '';
-    repoOwner = gitlabSettings.repoOwner || '';
-    projectSettings = gitlabSettings.projectSettings || {};
-    hasInitialSettings = Boolean(gitlabSettings.gitlabToken && gitlabSettings.repoOwner);
-
-    // Validate existing token and username if they exist
-    if (gitlabToken && repoOwner) {
-      await validateGitLabToken(gitlabToken, repoOwner);
+    try {
+      gitlabSettings = (await chrome.storage.sync.get([
+        'gitlabToken',
+        'repoOwner',
+        'projectSettings',
+      ])) as GitLabSettingsInterface;
+      
+      // Initialize with empty values if not set
+      gitlabToken = gitlabSettings.gitlabToken || '';
+      repoOwner = gitlabSettings.repoOwner || '';
+      projectSettings = gitlabSettings.projectSettings || {};
+      
+      // Only mark as having initial settings if we have both required fields
+      hasInitialSettings = Boolean(gitlabSettings.gitlabToken && gitlabSettings.repoOwner);
+      
+      // Validate existing token and username if they exist
+      if (gitlabToken && repoOwner) {
+        await validateGitLabToken(gitlabToken, repoOwner);
+      }
+    } catch (error) {
+      console.error('Error loading settings:', error);
+      status = 'Error loading settings. Please try again.';
+      hasStatus = true;
+      isSettingsValid = false;
     }
 
     const tabs = await chrome.tabs.query({ active: true, currentWindow: true });
@@ -191,15 +201,22 @@
   }
 
   async function checkSettingsValidity() {
-    // Only consider settings valid if we have all required fields AND the validation passed
-    isSettingsValid =
-      Boolean(gitlabToken && repoOwner) &&
-      !isValidatingToken &&
-      isTokenValid === true;
+    try {
+      // Only consider settings valid if we have all required fields AND the validation passed
+      isSettingsValid =
+        Boolean(gitlabToken && repoOwner) &&
+        !isValidatingToken &&
+        isTokenValid === true;
 
-    // Ensure settings are saved after validation
-    if (isSettingsValid) {
-      await saveSettings();
+      // Ensure settings are saved after validation
+      if (isSettingsValid) {
+        await saveSettings();
+      }
+    } catch (error) {
+      console.error('Error checking settings validity:', error);
+      isSettingsValid = false;
+      status = error instanceof Error ? error.message : 'Error validating settings';
+      hasStatus = true;
     }
   }
 

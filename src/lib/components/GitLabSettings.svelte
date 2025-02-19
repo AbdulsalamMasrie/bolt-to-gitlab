@@ -281,6 +281,13 @@
       await chrome.storage.sync.set(settings);
       hasInitialSettings = true;
       isSettingsValid = true;
+
+      // Notify UI of settings change
+      chrome.runtime.sendMessage({
+        type: 'GITLAB_SETTINGS_CHANGED',
+        data: { isValid: true }
+      });
+
       status = 'Settings saved successfully!';
       hasStatus = true;
       setTimeout(() => {

@@ -14,7 +14,7 @@
   export let baseUrl: string = 'https://gitlab.com';
   export let onSave: () => void;
   export let onInput: () => void;
-  export let buttonDisabled: boolean = false;
+  export let buttonDisabled: boolean = true;
   
   // Store project URL history
   let projectUrlHistory: ProjectUrlHistory[] = [];
@@ -89,18 +89,21 @@
 
   async function validateSettings() {
     if (!gitlabToken || !repoOwner || !baseUrl) {
-      isTokenValid = null;
+      isTokenValid = false;
       validationError = 'Missing required settings';
+      buttonDisabled = true;
       return;
     }
 
     try {
       isValidatingToken = true;
       validationError = null;
+      buttonDisabled = true;
       const gitlabService = new GitLabService(gitlabToken, baseUrl);
       const result = await gitlabService.validateTokenAndUser(repoOwner);
       isTokenValid = result.isValid;
       validationError = result.error || null;
+      buttonDisabled = !result.isValid;
 
       // Load last used values if validation successful
       if (result.isValid && selectedUrl) {
@@ -129,6 +132,7 @@
     onInput();
     isTokenValid = null;
     validationError = null;
+    buttonDisabled = true;
 
     // Clear existing timeout
     if (tokenValidationTimeout) {

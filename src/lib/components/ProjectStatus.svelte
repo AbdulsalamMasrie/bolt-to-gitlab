@@ -25,11 +25,11 @@
 
   export const getProjectStatus = async () => {
     try {
-      const gitlabService = new GitLabService(token);
+      const gitlabService = new GitLabService(token, window.localStorage.getItem('gitlab_base_url') || 'https://gitlab.com');
 
       // Get repo info
-      const repoInfo = await gitlabService.getRepoInfo(gitLabUsername, repoName);
-      repoExists = repoInfo.exists;
+      const repoInfo = await gitlabService.validateProjectUrl(`${window.localStorage.getItem('gitlab_base_url') || 'https://gitlab.com'}/${gitLabUsername}/${repoName}`);
+      repoExists = repoInfo.isValid;
       isLoading.repoStatus = false;
 
       if (repoExists) {

@@ -16,7 +16,6 @@
   import { GITLAB_LINK } from '$lib/constants';
   import Footer from '$lib/components/Footer.svelte';
   import type { GitLabSettingsInterface } from '$lib/types';
-  import ProjectsList from '$lib/components/ProjectsList.svelte';
   import { GitLabService } from '../services/GitLabService';
   import { Button } from '$lib/components/ui/button';
   import Help from '$lib/components/Help.svelte';
@@ -76,27 +75,40 @@
 
   async function connectToBackground(): Promise<chrome.runtime.Port | null> {
     try {
+      // Check if extension context is valid
+      if (!chrome.runtime || !chrome.runtime.id) {
+        console.error('Extension context is invalid');
+        return null;
+      }
+
       const port = chrome.runtime.connect({ name: 'popup' });
       
-      // Set up disconnect handler
+      // Set up disconnect handler with exponential backoff
       port.onDisconnect.addListener(() => {
         const error = chrome.runtime.lastError;
-        console.error('Port disconnected:', error?.message);
-        if (retryCount < MAX_RETRIES) {
-          retryCount++;
-          setTimeout(connectToBackground, RETRY_DELAY);
+        if (error) {
+          console.error('Port disconnected:', error.message);
+        }
+        
+        // Only retry if extension context is still valid
+        if (chrome.runtime && chrome.runtime.id) {
+          if (retryCount < MAX_RETRIES) {
+            retryCount++;
+            const delay = RETRY_DELAY * Math.pow(2, retryCount - 1); // Exponential backoff
+            setTimeout(() => connectToBackground(), delay);
+          } else {
+            console.error('Max reconnection attempts reached');
+          }
+        } else {
+          console.error('Extension context is invalid, not attempting reconnection');
         }
       });
       
+      // Reset retry count on successful connection
+      retryCount = 0;
       return port;
     } catch (error) {
       console.error('Connection failed:', error);
-      if (retryCount < MAX_RETRIES) {
-        retryCount++;
-        return new Promise(resolve => 
-          setTimeout(() => resolve(connectToBackground()), RETRY_DELAY)
-        );
-      }
       return null;
     }
   }
@@ -367,15 +379,6 @@
 
           </TabsContent>
 
-          <TabsContent value="projects">
-            <ProjectsList
-              {projectSettings}
-              {repoOwner}
-              token={gitlabToken}
-              currentlyLoadedProjectId={parsedProjectId}
-              {isBoltSite}
-            />
-          </TabsContent>
 
           <TabsContent value="settings">
             <Card class="border-slate-800 bg-slate-900">
@@ -406,13 +409,17 @@
           </TabsContent>
         </Tabs>
       {:else if hasInitialSettings && repoOwner && gitlabToken}
-        <ProjectsList
-          {projectSettings}
-          {repoOwner}
-          token={gitlabToken}
-          currentlyLoadedProjectId={parsedProjectId}
-          {isBoltSite}
-        />
+        <div class="flex flex-col items-center justify-center p-4 text-center space-y-6">
+          <div class="space-y-2">
+            <Button
+              variant="outline"
+              class="border-slate-800 hover:bg-slate-800 text-slate-200"
+              on:click={() => window.open('https://bolt.new', '_blank')}
+            >
+              Go to bolt.new
+            </Button>
+          </div>
+        </div>
       {:else}
         <div class="flex flex-col items-center justify-center p-4 text-center space-y-6">
           <div class="space-y-2">

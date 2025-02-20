@@ -173,18 +173,15 @@ export class GitLabService extends BaseGitService {
     }
 
     const message = errorDetails.message || errorDetails.error || 'Unknown GitLab API error';
-    const apiError = new Error(`GitLab API Error (${response.status}): ${message}`) as any;
-    apiError.status = response.status;
-    apiError.originalMessage = message;
-    apiError.gitlabErrorResponse = errorDetails;
+    const apiError = new Error(`GitLab API Error (${response.status}): ${message}`);
 
     switch (response.status) {
       case 401:
-        return new Error('Invalid GitLab token. Please check your settings.');
+        return new Error('GitLab token is invalid or expired. Please check your settings.');
       case 403:
         return new Error('Insufficient permissions for this GitLab operation.');
       case 404:
-        return new Error('GitLab resource not found.');
+        return new Error('GitLab repository not found. Please check the repository URL.');
       case 429: {
         const retryAfter = response.headers.get('Retry-After');
         return new Error(
@@ -238,23 +235,6 @@ export class GitLabService extends BaseGitService {
         return { isValid: false, error: 'Invalid GitLab username or organization' };
       }
       return { isValid: false, error: error.message || 'Failed to validate GitLab token' };
-    }
-  }
-
-  async listRepos(): Promise<Array<{
-    name: string;
-    description: string | null;
-    web_url: string;
-    visibility: string;
-    created_at: string;
-    last_activity_at: string;
-  }>> {
-    try {
-      const projects = await this.request('GET', '/projects?membership=true');
-      return projects;
-    } catch (error) {
-      console.error('Failed to load repos:', error);
-      throw error;
     }
   }
 

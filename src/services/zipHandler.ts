@@ -80,15 +80,6 @@ export class ZipHandler {
       throw new Error('GitLab service not initialized. Please set your GitLab token.');
     }
 
-    if (!currentProjectId) {
-      await this.updateStatus(
-        'error',
-        0,
-        'Project ID not found. Make sure you are on a Bolt project page.'
-      );
-      throw new Error('Project ID not found. Make sure you are on a Bolt project page.');
-    }
-
     try {
       await this.updateStatus('uploading', 0, 'Processing ZIP file...');
 

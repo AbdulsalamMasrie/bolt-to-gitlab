@@ -14,12 +14,22 @@ export class ConnectionManager {
   async connect(): Promise<boolean> {
     try {
       if (!chrome.runtime || !chrome.runtime.id) {
+        console.error('Chrome runtime not available');
         this.notifyConnectionStatus(false);
         return false;
       }
 
+      console.log('Connecting to port:', this.portName);
       this.port = chrome.runtime.connect({ name: this.portName });
+      
+      if (!this.port) {
+        console.error('Failed to create port connection');
+        this.notifyConnectionStatus(false);
+        return false;
+      }
+
       this.setupPortListeners();
+      console.log('Connection established successfully');
       this.notifyConnectionStatus(true);
       return true;
     } catch (error) {
@@ -30,23 +40,34 @@ export class ConnectionManager {
   }
 
   private setupPortListeners(): void {
-    if (!this.port) return;
+    if (!this.port) {
+      console.error('Cannot setup listeners: port is null');
+      return;
+    }
 
     this.port.onDisconnect.addListener(() => {
       const error = chrome.runtime.lastError;
+      console.log('Port disconnected:', error?.message || 'No error details');
       this.notifyConnectionStatus(false);
 
       if (chrome.runtime && chrome.runtime.id && !error?.message?.includes('Extension context invalidated')) {
         if (this.retryCount < this.MAX_RETRIES) {
           this.retryCount++;
-          setTimeout(() => this.reconnect(), this.RETRY_DELAY * Math.pow(2, this.retryCount - 1));
+          const delay = this.RETRY_DELAY * Math.pow(2, this.retryCount - 1);
+          console.log(`Scheduling reconnection attempt ${this.retryCount} in ${delay}ms`);
+          setTimeout(() => this.reconnect(), delay);
+        } else {
+          console.error('Max retry attempts reached');
         }
       }
     });
 
     this.port.onMessage.addListener((message: Message) => {
+      console.log('Received message:', message.type);
       this.messageListeners.forEach(listener => listener(message));
     });
+
+    console.log('Port listeners setup completed');
   }
 
   private async reconnect(): Promise<void> {

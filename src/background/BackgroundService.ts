@@ -214,8 +214,8 @@ export class BackgroundService {
         // Process the ZIP file
         await this.withTimeout(
           this.zipHandler.processZipFile(blob, projectId, this.pendingCommitMessage),
-          2 * 60 * 1000, // 2 minutes timeout
-          'Processing ZIP file timed out'
+          5 * 60 * 1000, // 5 minutes timeout
+          'File upload timed out. Please try again with a smaller number of files or check your network connection.'
         );
 
         // Reset commit message after successful upload

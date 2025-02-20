@@ -80,11 +80,6 @@
   }
 
   async function validateGitLabToken(token: string, username: string): Promise<boolean> {
-    if (!isConnected) {
-      validationError = 'Extension not connected. Please try again.';
-      return false;
-    }
-
     if (!token) {
       isTokenValid = false;
       validationError = 'GitLab token is required';
@@ -97,6 +92,22 @@
       const result = await gitlabService.validateTokenAndUser(username);
       isTokenValid = result.isValid;
       validationError = result.error || null;
+
+      // Only check connection after token validation
+      if (result.isValid && !isConnected) {
+        try {
+          await connectToBackground();
+          if (!isConnected) {
+            validationError = 'Extension not connected. Please try refreshing the page.';
+            return false;
+          }
+        } catch (error) {
+          console.error('Failed to establish connection:', error);
+          validationError = 'Failed to connect to extension. Please check your internet connection and try again.';
+          return false;
+        }
+      }
+
       return result.isValid;
     } catch (error) {
       console.error('Error validating settings:', error);
@@ -235,6 +246,19 @@
       const validation = validateSettings();
       if (!validation.isValid) {
         throw new Error(validation.error);
+      }
+
+      // Ensure connection is established
+      if (!isConnected) {
+        try {
+          await connectToBackground();
+          if (!isConnected) {
+            throw new Error('Failed to connect to extension. Please try refreshing the page.');
+          }
+        } catch (error) {
+          console.error('Failed to establish connection:', error);
+          throw new Error('Failed to connect to extension. Please check your internet connection and try again.');
+        }
       }
 
       // Validate token and username with GitLab

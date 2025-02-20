@@ -80,6 +80,11 @@
   }
 
   async function validateGitLabToken(token: string, username: string): Promise<boolean> {
+    if (!isConnected) {
+      validationError = 'Extension not connected. Please try again.';
+      return false;
+    }
+
     if (!token) {
       isTokenValid = false;
       validationError = 'GitLab token is required';
@@ -96,7 +101,7 @@
     } catch (error) {
       console.error('Error validating settings:', error);
       isTokenValid = false;
-      validationError = 'Validation failed';
+      validationError = error instanceof Error ? error.message : 'GitLab token validation failed';
       return false;
     } finally {
       isValidatingToken = false;

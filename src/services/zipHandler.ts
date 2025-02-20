@@ -97,35 +97,14 @@ export class ZipHandler {
 
       await this.updateStatus('uploading', 10, 'Preparing files...');
 
-      const { repoOwner, projectSettings: existingSettings } = await chrome.storage.sync.get([
+      const { repoOwner, repoName, branch } = await chrome.storage.sync.get([
         'repoOwner',
-        'projectSettings',
+        'repoName',
+        'branch'
       ]);
 
-      let projectSettings = existingSettings || {};
-      let repoName: string;
-      let branch: string;
-
-      // Initialize default settings if not found
-      if (!projectSettings[currentProjectId]) {
-        const defaultSettings = {
-          repoName: currentProjectId,
-          branch: 'main'
-        };
-        projectSettings = {
-          ...projectSettings,
-          [currentProjectId]: defaultSettings
-        };
-        await chrome.storage.sync.set({ projectSettings });
-        repoName = defaultSettings.repoName;
-        branch = defaultSettings.branch;
-      } else {
-        repoName = projectSettings[currentProjectId].repoName;
-        branch = projectSettings[currentProjectId].branch;
-      }
-
       if (!repoOwner || !repoName) {
-        throw new Error('Repository details not configured');
+        throw new Error('Repository details not configured. Please set your GitLab repository URL in the settings.');
       }
 
       const targetBranch = branch || 'main';
@@ -133,24 +112,10 @@ export class ZipHandler {
 
       await this.updateStatus('uploading', 15, 'Checking repository...');
       try {
-        await this.gitlabService.ensureProjectExists(repoOwner, repoName);
+        await this.gitlabService.validateRepository(repoOwner, repoName);
       } catch (error) {
+        console.error('Repository validation failed:', error);
         throw new Error('Repository not found. Please make sure the repository exists and you have access to it.');
-      }
-
-      // Check if project is empty and needs initialization
-      const isEmpty = await this.gitlabService.isProjectEmpty(repoOwner, repoName);
-      if (isEmpty) {
-        await this.updateStatus('uploading', 18, 'Initializing empty repository...');
-        await this.gitlabService.request(
-          'POST',
-          `/projects/${encodeURIComponent(`${repoOwner}/${repoName}`)}/repository/files/README.md`,
-          {
-            branch: targetBranch,
-            content: '# ' + repoName,
-            commit_message: 'Initialize repository'
-          }
-        );
       }
 
       await this.ensureBranchExists(repoOwner, repoName, targetBranch);

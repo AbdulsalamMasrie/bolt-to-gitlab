@@ -231,6 +231,7 @@ export class BackgroundService {
           status: { status: 'success', message: 'Upload completed successfully', progress: 100 },
         });
       } catch (decodeError) {
+        console.error('Error processing ZIP data:', decodeError);
         const errorMessage =
           decodeError instanceof Error ? decodeError.message : String(decodeError);
         const isGitLabError = errorMessage.includes('GitLab API Error');
@@ -239,13 +240,22 @@ export class BackgroundService {
           // Extract the original GitLab error message if available
           const originalMessage =
             (decodeError as any).originalMessage || 'GitLab authentication or API error occurred';
-          throw new Error(`GitLab Error: ${originalMessage}`);
+          console.error('GitLab API Error:', originalMessage);
+          throw new Error(`GitLab Error: ${originalMessage}. Please check your GitLab token and repository permissions.`);
         } else if (errorMessage.includes('Project settings not found')) {
-          throw new Error('Project settings not configured. Please configure project settings in the extension popup.');
+          console.error('Project settings not found');
+          throw new Error('Project settings not configured. Please configure your GitLab repository settings in the extension popup.');
+        } else if (errorMessage.includes('Repository not found')) {
+          console.error('Repository not found');
+          throw new Error('Repository not found. Please verify your GitLab repository URL and permissions.');
+        } else if (errorMessage.includes('Insufficient permissions')) {
+          console.error('Permission error:', errorMessage);
+          throw new Error('Insufficient permissions. Please check your GitLab token has the required access rights.');
         } else {
+          console.error('Unknown ZIP processing error:', errorMessage);
           throw new Error(
             `Failed to process ZIP data. Please try reloading the page. ` +
-              `If the issue persists, please open a GitLab issue.`
+              `If the issue persists, please check your network connection or contact support.`
           );
         }
       }

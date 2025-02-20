@@ -44,17 +44,23 @@ export class GitLabService extends BaseGitService {
 
   async request(method: string, endpoint: string, body?: any, options: RequestInit = {}) {
     const url = `${this.baseUrl}/${this.apiVersion}${endpoint}`;
-    console.log('GitLab API Request:', { method, url, body });
+    console.log('GitLab API Request:', { method, url });
     
     const headers = { ...this.getRequestHeaders(), ...options.headers };
     console.log('Request headers:', { ...headers, 'PRIVATE-TOKEN': '[REDACTED]' });
     
-    const response = await fetch(url, {
+    // Don't include body for GET requests
+    const requestOptions: RequestInit = {
       method,
       headers,
-      body: body ? JSON.stringify(body) : undefined,
       ...options
-    });
+    };
+    
+    if (method !== 'GET' && body) {
+      requestOptions.body = JSON.stringify(body);
+    }
+    
+    const response = await fetch(url, requestOptions);
 
     console.log('GitLab API Response:', {
       status: response.status,

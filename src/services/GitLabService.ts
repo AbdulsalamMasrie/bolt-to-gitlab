@@ -247,8 +247,8 @@ export class GitLabService extends BaseGitService {
   public async validateRepository(owner: string, name: string): Promise<void> {
     try {
       await this.request('GET', `/projects/${encodeURIComponent(`${owner}/${name}`)}`);
-    } catch (error) {
-      if (error.status === 404) {
+    } catch (error: any) {
+      if (error?.status === 404) {
         throw new RepositoryError('Repository not found. Please make sure the repository exists and you have access to it.');
       }
       throw error;

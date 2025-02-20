@@ -84,12 +84,11 @@ export class ZipHandler {
     // Add size validation (50MB limit)
     const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB in bytes
     if (blob.size > MAX_FILE_SIZE) {
-      await this.updateStatus(
-        'error',
-        0,
-        `File too large. Maximum size is ${MAX_FILE_SIZE / 1024 / 1024}MB`
-      );
-      throw new Error(`File too large. Maximum size is ${MAX_FILE_SIZE / 1024 / 1024}MB`);
+      const sizeMB = MAX_FILE_SIZE / 1024 / 1024;
+      const message = `File too large. Maximum size is ${sizeMB}MB. Please reduce the number of files or compress them further.`;
+      console.error('File size validation failed:', { size: blob.size, maxSize: MAX_FILE_SIZE });
+      await this.updateStatus('error', 0, message);
+      throw new Error(message);
     }
 
     if (!this.gitlabService) {

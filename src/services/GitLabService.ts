@@ -49,67 +49,7 @@ export class GitLabService extends BaseGitService {
     });
   }
 
-  async createTemporaryPublicProject(owner: string, sourceRepo: string): Promise<string> {
-    const tempName = `temp-${Date.now()}`;
-    await this.request('POST', '/projects', {
-      name: tempName,
-      visibility: 'public',
-      namespace_id: await this.getNamespaceId(owner)
-    });
-    return tempName;
-  }
-
-  async cloneProjectContents(
-    sourceOwner: string,
-    sourceRepo: string,
-    targetOwner: string,
-    targetRepo: string,
-    branch: string,
-    progressCallback: (progress: number) => void
-  ): Promise<void> {
-    const sourceProject = encodeURIComponent(`${sourceOwner}/${sourceRepo}`);
-    const targetProject = encodeURIComponent(`${targetOwner}/${targetRepo}`);
-    
-    // Get source repository tree
-    const tree = await this.request(
-      'GET',
-      `/projects/${sourceProject}/repository/tree?recursive=true`
-    );
-
-    let completed = 0;
-    const total = tree.length;
-
-    for (const item of tree) {
-      if (item.type === 'blob') {
-        const content = await this.request(
-          'GET',
-          `/projects/${sourceProject}/repository/files/${encodeURIComponent(item.path)}/raw?ref=${branch}`
-        );
-
-        await this.request(
-          'POST',
-          `/projects/${targetProject}/repository/files/${encodeURIComponent(item.path)}`,
-          {
-            branch,
-            content: content,
-            commit_message: `Clone ${item.path} from ${sourceRepo}`
-          }
-        );
-
-        completed++;
-        progressCallback(completed / total);
-      }
-    }
-  }
-
-  private async getNamespaceId(owner: string): Promise<number> {
-    const namespaces = await this.request('GET', '/namespaces', { search: owner });
-    const namespace = namespaces.find((ns: any) => ns.path === owner);
-    if (!namespace) {
-      throw new Error(`Namespace not found for owner: ${owner}`);
-    }
-    return namespace.id;
-  }
+  // Project creation and cloning removed - users must provide existing project URL
   protected get baseUrl(): string {
     return `${this.customBaseUrl || DEFAULT_GITLAB_BASE_URL}/api`;
   }
@@ -255,31 +195,7 @@ export class GitLabService extends BaseGitService {
     }
   }
 
-  async isProjectEmpty(owner: string, name: string): Promise<boolean> {
-    try {
-      const commits = await this.request(
-        'GET',
-        `/projects/${encodeURIComponent(`${owner}/${name}`)}/repository/commits`
-      );
-      return Array.isArray(commits) && commits.length === 0;
-    } catch (error) {
-      return true;
-    }
-  }
-
-  async updateProjectVisibility(
-    owner: string,
-    name: string,
-    visibility: 'private' | 'public'
-  ): Promise<void> {
-    await this.request('PUT', `/projects/${encodeURIComponent(`${owner}/${name}`)}`, {
-      visibility
-    });
-  }
-
-  async deleteProject(owner: string, name: string): Promise<void> {
-    await this.request('DELETE', `/projects/${encodeURIComponent(`${owner}/${name}`)}`);
-  }
+  // Project management methods removed - users must manage their repositories through GitLab UI
 
   protected async uploadFile(
     path: string,

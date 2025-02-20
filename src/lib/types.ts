@@ -9,9 +9,7 @@ export type MessageType =
   | 'DEBUG'
   | 'CONTENT_SCRIPT_READY'
   | 'GITLAB_SETTINGS_CHANGED'
-  | 'OPEN_SETTINGS'
-  | 'IMPORT_PRIVATE_REPO'
-  | 'DELETE_TEMP_REPO';
+  | 'OPEN_SETTINGS';
 
 export interface Message {
   type: MessageType;

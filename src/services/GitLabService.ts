@@ -43,10 +43,38 @@ export class GitLabService extends BaseGitService {
   }
 
   async request(method: string, endpoint: string, body?: any, options: RequestInit = {}) {
-    return super.request(method, endpoint, body, {
-      ...options,
-      headers: { ...this.getRequestHeaders(), ...options.headers }
+    const url = `${this.baseUrl}/${this.apiVersion}${endpoint}`;
+    console.log('GitLab API Request:', { method, url, body });
+    
+    const headers = { ...this.getRequestHeaders(), ...options.headers };
+    console.log('Request headers:', { ...headers, 'PRIVATE-TOKEN': '[REDACTED]' });
+    
+    const response = await fetch(url, {
+      method,
+      headers,
+      body: body ? JSON.stringify(body) : undefined,
+      ...options
     });
+
+    console.log('GitLab API Response:', {
+      status: response.status,
+      statusText: response.statusText,
+      headers: Object.fromEntries(response.headers.entries())
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('GitLab API Error:', {
+        status: response.status,
+        statusText: response.statusText,
+        error: errorText
+      });
+      const error = new Error(`GitLab API Error (${response.status}): ${errorText || response.statusText}`);
+      (error as any).status = response.status;
+      throw error;
+    }
+
+    return response.json();
   }
 
   // Project creation and cloning removed - users must provide existing project URL
@@ -186,30 +214,57 @@ export class GitLabService extends BaseGitService {
 
   public async validateRepository(owner: string, name: string): Promise<void> {
     try {
-      await this.request('GET', `/projects/${encodeURIComponent(`${owner}/${name}`)}`);
-    } catch (error: any) {
-      if (error?.status === 404) {
-        throw new RepositoryError('Repository not found. Please make sure the repository exists and you have access to it.');
+      const projectPath = encodeURIComponent(`${owner}/${name}`);
+      console.log('Validating repository:', { owner, name, projectPath });
+      
+      const response = await this.request('GET', `/projects/${projectPath}`);
+      console.log('Repository validation response:', response);
+      
+      if (!response) {
+        throw new RepositoryError('Invalid repository response');
       }
-      throw error;
+
+      // Verify write access by checking branch access
+      try {
+        await this.request('GET', `/projects/${projectPath}/repository/branches`);
+      } catch (error: any) {
+        console.error('Branch access check failed:', error);
+        if (error?.status === 403) {
+          throw new RepositoryError('Insufficient permissions. Please make sure your GitLab token has write access to this repository.');
+        }
+        throw error;
+      }
+    } catch (error: any) {
+      console.error('Repository validation error:', error);
+      if (error?.status === 404) {
+        throw new RepositoryError('Repository not found. Please verify the repository URL and your access permissions.');
+      } else if (error instanceof RepositoryError) {
+        throw error;
+      } else {
+        throw new RepositoryError(`GitLab API Error: ${error.message || 'Unknown error'}`);
+      }
     }
   }
 
   // Project management methods removed - users must manage their repositories through GitLab UI
 
   protected async uploadFile(
+    owner: string,
+    repo: string,
     path: string,
     content: string,
     options: { message?: string; branch?: string } = {}
   ): Promise<GitLabFileResponse> {
     const response = await this.request(
       'POST',
-      `/repository/files/${encodeURIComponent(path)}`,
+      `/projects/${encodeURIComponent(`${owner}/${repo}`)}/repository/files/${encodeURIComponent(path)}`,
       {
         file_path: path,
         branch: options.branch || 'main',
         content,
-        commit_message: options.message || 'Update file via Bolt to GitLab'
+        commit_message: options.message || 'Update file via Bolt to GitLab',
+        author_name: 'Bolt to GitLab',
+        author_email: 'bolt-to-gitlab@noreply.gitlab.com'
       }
     );
     return response as GitLabFileResponse;

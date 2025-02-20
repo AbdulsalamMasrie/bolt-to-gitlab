@@ -26,32 +26,53 @@ export class ZipHandler {
     repoName: string,
     targetBranch: string
   ) => {
-    // Check if branch exists
-    let branchExists = true;
-    try {
-      await this.gitlabService.request(
-        'GET',
-        `/projects/${encodeURIComponent(`${repoOwner}/${repoName}`)}/repository/branches/${targetBranch}`
-      );
-    } catch (error) {
-      branchExists = false;
-    }
+    const projectPath = encodeURIComponent(`${repoOwner}/${repoName}`);
+    console.log('Checking branch existence:', { repoOwner, repoName, targetBranch });
 
-    // If branch doesn't exist, create it from default branch
-    if (!branchExists) {
-      await this.updateStatus('uploading', 18, `Creating branch ${targetBranch}...`);
-      const defaultBranch = await this.gitlabService.request(
-        'GET',
-        `/projects/${encodeURIComponent(`${repoOwner}/${repoName}`)}/repository/branches/main`
-      );
+    try {
+      // Check if branch exists
       await this.gitlabService.request(
-        'POST',
-        `/projects/${encodeURIComponent(`${repoOwner}/${repoName}`)}/repository/branches`,
-        {
-          branch: targetBranch,
-          ref: defaultBranch.commit.id,
-        }
+        'GET',
+        `/projects/${projectPath}/repository/branches/${encodeURIComponent(targetBranch)}`
       );
+      console.log('Branch exists:', targetBranch);
+    } catch (error: any) {
+      if (error?.status === 404) {
+        console.log('Branch not found, creating:', targetBranch);
+        await this.updateStatus('uploading', 18, `Creating branch ${targetBranch}...`);
+
+        try {
+          // Get default branch
+          const defaultBranch = await this.gitlabService.request(
+            'GET',
+            `/projects/${projectPath}/repository/branches/main`
+          );
+
+          if (!defaultBranch?.commit?.id) {
+            throw new Error('Invalid default branch response');
+          }
+
+          // Create new branch
+          await this.gitlabService.request(
+            'POST',
+            `/projects/${projectPath}/repository/branches`,
+            {
+              branch: targetBranch,
+              ref: defaultBranch.commit.id,
+            }
+          );
+          console.log('Branch created successfully:', targetBranch);
+        } catch (createError: any) {
+          console.error('Failed to create branch:', createError);
+          if (createError?.status === 403) {
+            throw new Error('Insufficient permissions to create branch. Please check your GitLab token permissions.');
+          }
+          throw new Error(`Failed to create branch: ${createError.message || 'Unknown error'}`);
+        }
+      } else {
+        console.error('Error checking branch:', error);
+        throw new Error(`Failed to check branch existence: ${error.message || 'Unknown error'}`);
+      }
     }
   };
 
@@ -63,12 +84,11 @@ export class ZipHandler {
     // Add size validation (50MB limit)
     const MAX_FILE_SIZE = 50 * 1024 * 1024; // 50MB in bytes
     if (blob.size > MAX_FILE_SIZE) {
-      await this.updateStatus(
-        'error',
-        0,
-        `File too large. Maximum size is ${MAX_FILE_SIZE / 1024 / 1024}MB`
-      );
-      throw new Error(`File too large. Maximum size is ${MAX_FILE_SIZE / 1024 / 1024}MB`);
+      const sizeMB = MAX_FILE_SIZE / 1024 / 1024;
+      const message = `File too large. Maximum size is ${sizeMB}MB. Please reduce the number of files or compress them further.`;
+      console.error('File size validation failed:', { size: blob.size, maxSize: MAX_FILE_SIZE });
+      await this.updateStatus('error', 0, message);
+      throw new Error(message);
     }
 
     if (!this.gitlabService) {
@@ -217,7 +237,7 @@ export class ZipHandler {
     await this.updateStatus('uploading', 30, 'Creating file blobs...');
 
     // Create blobs for all files
-    const treeItems = await this.createBlobs(processedFiles, repoOwner, repoName);
+    const treeItems = await this.createBlobs(processedFiles, repoOwner, repoName, targetBranch, commitMessage);
 
     await this.updateStatus('uploading', 70, 'Creating tree...');
 
@@ -230,7 +250,9 @@ export class ZipHandler {
           branch: targetBranch,
           content: toBase64(content),
           commit_message: commitMessage,
-          encoding: 'base64'
+          encoding: 'base64',
+          author_name: 'Bolt to GitLab',
+          author_email: 'bolt-to-gitlab@noreply.gitlab.com'
         }
       );
     }
@@ -245,7 +267,9 @@ export class ZipHandler {
   private async createBlobs(
     files: Map<string, string>,
     repoOwner: string,
-    repoName: string
+    repoName: string,
+    targetBranch: string,
+    commitMessage: string
   ): Promise<Array<{ path: string; mode: string; type: string; sha: string }>> {
     const results: Array<{ path: string; mode: string; type: string; sha: string }> = [];
     const totalFiles = files.size;
@@ -293,10 +317,12 @@ export class ZipHandler {
               'POST',
               `/projects/${encodeURIComponent(`${repoOwner}/${repoName}`)}/repository/files/${encodeURIComponent(path)}`,
               {
-                branch: 'main',
+                branch: targetBranch,
                 content: toBase64(content),
                 encoding: 'base64',
-                commit_message: 'Add file via Bolt to GitLab'
+                commit_message: commitMessage,
+                author_name: 'Bolt to GitLab',
+                author_email: 'bolt-to-gitlab@noreply.gitlab.com'
               }
             );
 

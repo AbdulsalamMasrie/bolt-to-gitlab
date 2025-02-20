@@ -184,23 +184,28 @@ export class BackgroundService {
   }
 
   private async handleZipData(tabId: number, base64Data: string): Promise<void> {
-    console.log('🔄 Handling ZIP data for tab:', tabId);
+    console.log('Processing ZIP data for tab:', tabId);
     const port = this.ports.get(tabId);
-    if (!port) return;
+    if (!port) {
+      console.error('Port not found for tab:', tabId);
+      return;
+    }
 
     try {
       if (!this.gitlabService) {
-        throw new Error('GitLab service is not initialized. Please check your GitLab settings.');
+        throw new Error('GitLab service not initialized. Please check your GitLab settings and try again.');
       }
 
       if (!this.zipHandler) {
-        throw new Error('Zip handler is not initialized.');
+        throw new Error('ZIP handler not initialized. Please try reloading the extension.');
       }
 
       const projectId = await this.stateManager.getProjectId();
       if (!projectId) {
-        throw new Error('Project ID is not set.');
+        throw new Error('Project ID not found. Please make sure you are on a valid Bolt project page.');
       }
+
+      console.log('Validating project:', { tabId, projectId });
 
       try {
         // Convert base64 to blob
@@ -214,8 +219,8 @@ export class BackgroundService {
         // Process the ZIP file
         await this.withTimeout(
           this.zipHandler.processZipFile(blob, projectId, this.pendingCommitMessage),
-          2 * 60 * 1000, // 2 minutes timeout
-          'Processing ZIP file timed out'
+          5 * 60 * 1000, // 5 minutes timeout
+          'File upload timed out. Please try again with a smaller number of files or check your network connection.'
         );
 
         // Reset commit message after successful upload
@@ -226,6 +231,7 @@ export class BackgroundService {
           status: { status: 'success', message: 'Upload completed successfully', progress: 100 },
         });
       } catch (decodeError) {
+        console.error('Error processing ZIP data:', decodeError);
         const errorMessage =
           decodeError instanceof Error ? decodeError.message : String(decodeError);
         const isGitLabError = errorMessage.includes('GitLab API Error');
@@ -234,13 +240,22 @@ export class BackgroundService {
           // Extract the original GitLab error message if available
           const originalMessage =
             (decodeError as any).originalMessage || 'GitLab authentication or API error occurred';
-          throw new Error(`GitLab Error: ${originalMessage}`);
+          console.error('GitLab API Error:', originalMessage);
+          throw new Error(`GitLab Error: ${originalMessage}. Please check your GitLab token and repository permissions.`);
         } else if (errorMessage.includes('Project settings not found')) {
-          throw new Error('Project settings not configured. Please configure project settings in the extension popup.');
+          console.error('Project settings not found');
+          throw new Error('Project settings not configured. Please configure your GitLab repository settings in the extension popup.');
+        } else if (errorMessage.includes('Repository not found')) {
+          console.error('Repository not found');
+          throw new Error('Repository not found. Please verify your GitLab repository URL and permissions.');
+        } else if (errorMessage.includes('Insufficient permissions')) {
+          console.error('Permission error:', errorMessage);
+          throw new Error('Insufficient permissions. Please check your GitLab token has the required access rights.');
         } else {
+          console.error('Unknown ZIP processing error:', errorMessage);
           throw new Error(
             `Failed to process ZIP data. Please try reloading the page. ` +
-              `If the issue persists, please open a GitLab issue.`
+              `If the issue persists, please check your network connection or contact support.`
           );
         }
       }

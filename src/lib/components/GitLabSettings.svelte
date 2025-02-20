@@ -132,11 +132,29 @@
     try {
       isValidatingToken = true;
       validationError = null;
+      permissionError = null;
+      permissionStatus = {
+        api: undefined,
+        read_api: undefined,
+        read_repository: undefined,
+        write_repository: undefined
+      };
+
       const gitlabService = new GitLabService(gitlabToken, baseUrl);
       const result = await gitlabService.validateTokenAndUser(repoOwner);
       isTokenValid = result.isValid;
       validationError = result.error || null;
       buttonDisabled = !result.isValid;
+
+      // Reset permission status on successful validation
+      if (result.isValid) {
+        permissionStatus = {
+          api: true,
+          read_api: true,
+          read_repository: true,
+          write_repository: undefined // Will be checked separately
+        };
+      }
 
       // Load last used values if validation successful
       if (result.isValid && selectedUrl) {
@@ -149,7 +167,29 @@
     } catch (error) {
       console.error('Error validating settings:', error);
       isTokenValid = false;
-      validationError = error instanceof Error ? error.message : 'GitLab token validation failed';
+      permissionStatus = {
+        api: false,
+        read_api: false,
+        read_repository: false,
+        write_repository: false
+      };
+      
+      if (error instanceof Error) {
+        const message = error.message;
+        if (message.includes('401')) {
+          validationError = 'Invalid GitLab token. Please check your token and try again.';
+        } else if (message.includes('403')) {
+          validationError = 'Insufficient permissions. Please check your token has the required scopes.';
+        } else if (message.includes('404')) {
+          validationError = 'GitLab username or namespace not found.';
+        } else if (message.includes('429')) {
+          validationError = 'Rate limit exceeded. Please try again in a few minutes.';
+        } else {
+          validationError = message;
+        }
+      } else {
+        validationError = 'GitLab token validation failed. Please try again.';
+      }
       buttonDisabled = true;
     } finally {
       isValidatingToken = false;

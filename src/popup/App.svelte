@@ -7,13 +7,10 @@
     CardHeader,
     CardTitle,
   } from '$lib/components/ui/card';
-  import Modal from '$lib/components/ui/modal/Modal.svelte';
-  import { STORAGE_KEY } from '../background/TempRepoManager';
   import { Tabs, TabsContent } from '$lib/components/ui/tabs';
   import Header from '$lib/components/Header.svelte';
   import StatusAlert from '$lib/components/StatusAlert.svelte';
   import GitLabSettings from '$lib/components/GitLabSettings.svelte';
-  import { GITLAB_LINK } from '$lib/constants';
   import Footer from '$lib/components/Footer.svelte';
   import type { GitLabSettingsInterface } from '$lib/types';
   import { GitLabService } from '../services/GitLabService';
@@ -43,28 +40,11 @@
   let isTokenValid: boolean | null = null;
   let validationError: string | null = null;
   let hasInitialSettings = false;
-  let showTempRepoModal = false;
-  let tempRepoData: TempRepoMetadata | null = null;
   let connectionManager: ConnectionManager;
   let isConnected = false;
   let connectionError: string | null = null;
   let hasConnectionError = false;
-  let hasDeletedTempRepo = false;
-  let hasUsedTempRepoName = false;
   let projectStatusRef: ProjectStatus;
-
-  interface TempRepoMetadata {
-    originalRepo: string;
-    tempRepo: string;
-    createdAt: number;
-    owner: string;
-  }
-
-  function sendMessage(type: string, data: any) {
-    if (connectionManager && isConnected) {
-      connectionManager.sendMessage(type, data);
-    }
-  }
 
   async function connectToBackground(): Promise<void> {
     try {
@@ -197,44 +177,7 @@
 
     // Message handling is now done through ConnectionManager
 
-    // Check for temp repos
-    const result = await chrome.storage.local.get(STORAGE_KEY);
-    const tempRepos: TempRepoMetadata[] = result[STORAGE_KEY] || [];
-
-    if (tempRepos.length > 0 && parsedProjectId) {
-      // Get the most recent temp repo
-      tempRepoData = tempRepos[tempRepos.length - 1];
-      showTempRepoModal = true;
-    }
   });
-
-  async function handleDeleteTempRepo() {
-    if (tempRepoData) {
-      console.log('Temporary repository data found:', tempRepoData);
-        repo: tempRepoData.tempRepo,
-      });
-      hasDeletedTempRepo = true;
-
-      // Only close modal if both actions are completed
-      if (hasDeletedTempRepo && hasUsedTempRepoName) {
-        showTempRepoModal = false;
-      }
-    }
-  }
-
-  async function handleUseTempRepoName() {
-    if (tempRepoData) {
-      repoName = tempRepoData.originalRepo;
-      await saveSettings();
-      await projectStatusRef.getProjectStatus();
-      hasUsedTempRepoName = true;
-
-      // Only close modal if both actions are completed
-      if (hasDeletedTempRepo && hasUsedTempRepoName) {
-        showTempRepoModal = false;
-      }
-    }
-  }
 
   async function checkSettingsValidity() {
     try {
@@ -434,66 +377,7 @@
     </CardContent>
     <Footer />
   </Card>
-  <Modal show={showTempRepoModal} title="Private Repository Import">
-    <div class="space-y-4">
-      <p class="text-amber-300 font-medium">
-        It looks like you just imported a private GitLab repository. Would you like to:
-      </p>
 
-      <div class="space-y-2">
-        {#if !hasDeletedTempRepo}
-          <div class="space-y-2">
-            <p class="text-sm text-slate-400">1. Clean up the temporary repository:</p>
-            <Button
-              variant="outline"
-              class="w-full border-slate-700 hover:bg-slate-800"
-              on:click={handleDeleteTempRepo}
-            >
-              Delete the temporary public repository now
-            </Button>
-          </div>
-        {:else}
-          <div
-            class="text-sm text-green-400 p-2 border border-green-800 bg-green-900/20 rounded-md"
-          >
-            ✓ Temporary repository has been deleted
-          </div>
-        {/if}
-
-        {#if !hasUsedTempRepoName}
-          <div class="space-y-2">
-            <p class="text-sm text-slate-400">2. Configure repository name:</p>
-            <Button
-              variant="outline"
-              class="w-full border-slate-700 hover:bg-slate-800"
-              on:click={handleUseTempRepoName}
-            >
-              Use original repository name ({tempRepoData?.originalRepo})
-            </Button>
-          </div>
-        {:else}
-          <div
-            class="text-sm text-green-400 p-2 border border-green-800 bg-green-900/20 rounded-md"
-          >
-            ✓ Repository name has been configured
-          </div>
-        {/if}
-
-        <Button
-          variant="ghost"
-          class="w-full text-slate-400 hover:text-slate-300"
-          on:click={() => (showTempRepoModal = false)}
-        >
-          Dismiss
-        </Button>
-      </div>
-
-      <p class="text-sm text-slate-400">
-        Note: The temporary repository will be automatically deleted in 1 minute if not deleted
-        manually.
-      </p>
-    </div>
-  </Modal>
 </main>
 
 <style>

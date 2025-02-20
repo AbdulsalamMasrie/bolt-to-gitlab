@@ -1,5 +1,6 @@
 import { BaseGitService, type ProgressCallback } from './BaseGitService';
 import type { UploadProgress } from '../lib/types';
+import { RepositoryError } from '../lib/errors';
 
 export const GITLAB_API_VERSION = 'v4';
 export const DEFAULT_GITLAB_BASE_URL = 'https://gitlab.com';
@@ -240,8 +241,18 @@ export class GitLabService extends BaseGitService {
 
 
   async ensureProjectExists(owner: string, name: string): Promise<void> {
-    // Only check if project exists, don't create it
-    await this.request('GET', `/projects/${encodeURIComponent(`${owner}/${name}`)}`);
+    await this.validateRepository(owner, name);
+  }
+
+  public async validateRepository(owner: string, name: string): Promise<void> {
+    try {
+      await this.request('GET', `/projects/${encodeURIComponent(`${owner}/${name}`)}`);
+    } catch (error: any) {
+      if (error?.status === 404) {
+        throw new RepositoryError('Repository not found. Please make sure the repository exists and you have access to it.');
+      }
+      throw error;
+    }
   }
 
   async isProjectEmpty(owner: string, name: string): Promise<boolean> {

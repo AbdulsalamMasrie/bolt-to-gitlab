@@ -19,16 +19,20 @@ export class ConnectionManager {
         return false;
       }
 
-      // Wait for service worker to be ready
-      await new Promise<void>((resolve) => {
+      // Ensure service worker is ready before attempting connection
+      await new Promise<void>((resolve, reject) => {
+        const timeout = setTimeout(() => reject(new Error('Service worker connection timeout')), 5000);
         const checkServiceWorker = () => {
-          chrome.runtime.getBackgroundPage((backgroundPage) => {
-            if (backgroundPage) {
-              resolve();
-            } else {
-              setTimeout(checkServiceWorker, 100);
-            }
-          });
+          if (chrome.runtime.getBackgroundPage) {
+            chrome.runtime.getBackgroundPage((backgroundPage) => {
+              if (backgroundPage) {
+                clearTimeout(timeout);
+                resolve();
+              } else {
+                setTimeout(checkServiceWorker, 100);
+              }
+            });
+          }
         };
         checkServiceWorker();
       });
@@ -37,9 +41,7 @@ export class ConnectionManager {
       this.port = chrome.runtime.connect({ name: this.portName });
       
       if (!this.port) {
-        console.error('Failed to create port connection');
-        this.notifyConnectionStatus(false);
-        return false;
+        throw new Error('Failed to create port connection');
       }
 
       this.setupPortListeners();

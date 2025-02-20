@@ -27,24 +27,37 @@ export class BackgroundService {
   // this.initializeStorageListener();
 
   private async initialize(): Promise<void> {
-    // Wait for service worker to be ready
-    await new Promise<void>((resolve) => {
-      if (chrome.runtime.getBackgroundPage) {
-        chrome.runtime.getBackgroundPage((backgroundPage) => {
-          if (backgroundPage) {
-            resolve();
-          }
+    try {
+      // Wait for service worker to be ready
+      await new Promise<void>((resolve, reject) => {
+        const timeout = setTimeout(() => reject(new Error('Service worker initialization timeout')), 5000);
+        
+        if (chrome.runtime.getBackgroundPage) {
+          chrome.runtime.getBackgroundPage((backgroundPage) => {
+            if (backgroundPage) {
+              clearTimeout(timeout);
+              resolve();
+            }
+          });
+        }
+        
+        // Fallback for service worker initialization
+        chrome.runtime.onInstalled.addListener(() => {
+          clearTimeout(timeout);
+          resolve();
         });
-      } else {
-        chrome.runtime.onInstalled.addListener(() => resolve());
-      }
-    });
+      });
 
-    const gitlabService = await this.initializeGitLabService();
-    this.setupZipHandler(gitlabService!);
-    this.setupConnectionHandlers();
-    this.setupStorageListener();
-    console.log('👂 Background service initialized');
+      const gitlabService = await this.initializeGitLabService();
+      this.setupZipHandler(gitlabService!);
+      this.setupConnectionHandlers();
+      this.setupStorageListener();
+      console.log('👂 Background service initialized');
+    } catch (error) {
+      console.error('Failed to initialize background service:', error);
+      // Re-throw to ensure caller knows about initialization failure
+      throw error;
+    }
   }
 
   private async initializeGitLabService(): Promise<GitLabService | null> {

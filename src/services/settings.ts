@@ -1,5 +1,6 @@
 import type { GitLabSettingsInterface, ProjectSettings } from '$lib/types';
 import { ValidationError } from '../lib/errors';
+import { GitLabTokenValidator } from './GitLabTokenValidator';
 
 const DEFAULT_GITLAB_BASE_URL = 'https://gitlab.com';
 
@@ -23,67 +24,12 @@ export class SettingsService {
   static async clearOldSettings(): Promise<void> {
     try {
       await chrome.storage.sync.remove(['githubToken']); // Remove legacy GitLab token during migration
+      await chrome.storage.local.remove(['cachedToken']); // Clear token cache
     } catch (error) {
       console.error('Error clearing old settings:', error);
     }
   }
-  private static async encryptToken(token: string): Promise<string> {
-    const encoder = new TextEncoder();
-    const data = encoder.encode(token);
-    const key = await crypto.subtle.generateKey(
-      { name: 'AES-GCM', length: 256 },
-      true,
-      ['encrypt', 'decrypt']
-    );
-    const iv = crypto.getRandomValues(new Uint8Array(12));
-    const encrypted = await crypto.subtle.encrypt(
-      { name: 'AES-GCM', iv },
-      key,
-      data
-    );
-    return JSON.stringify({
-      encrypted: Array.from(new Uint8Array(encrypted)),
-      iv: Array.from(iv),
-      key: await crypto.subtle.exportKey('jwk', key)
-    });
-  }
 
-  private static async decryptToken(encryptedData: string): Promise<string> {
-    try {
-      // Check if the token is a raw GitLab token (starts with 'glpat-')
-      if (encryptedData.startsWith('glpat-')) {
-        return encryptedData;
-      }
-
-      // Try to parse as encrypted data
-      try {
-        const { encrypted, iv, key } = JSON.parse(encryptedData);
-        const importedKey = await crypto.subtle.importKey(
-          'jwk',
-          key,
-          { name: 'AES-GCM', length: 256 },
-          true,
-          ['encrypt', 'decrypt']
-        );
-        const decrypted = await crypto.subtle.decrypt(
-          { name: 'AES-GCM', iv: new Uint8Array(iv) },
-          importedKey,
-          new Uint8Array(encrypted)
-        );
-        return new TextDecoder().decode(decrypted);
-      } catch (parseError) {
-        console.error('Error parsing encrypted data:', parseError);
-        // If parsing fails but the token looks valid, return it as-is
-        if (encryptedData.length > 0) {
-          return encryptedData;
-        }
-        return '';
-      }
-    } catch (error) {
-      console.error('Error decrypting token:', error);
-      return '';
-    }
-  }
 
   static async initializeGitLabSettings(): Promise<void> {
     try {
@@ -97,9 +43,8 @@ export class SettingsService {
       ]);
       
       // Initialize with empty settings
-      const encryptedToken = await this.encryptToken('');  // Empty token for security
       await chrome.storage.sync.set({
-        gitlabToken: encryptedToken,
+        gitlabToken: '',  // Empty token for security
         repoOwner: settings.repoOwner || '',
         repoName: settings.repoName || '',
         branch: settings.branch || 'main',
@@ -141,10 +86,10 @@ export class SettingsService {
 
       if (settings.gitlabToken) {
         try {
-          decryptedToken = await this.decryptToken(settings.gitlabToken);
+          decryptedToken = await GitLabTokenValidator.validateAndCacheToken(settings.gitlabToken);
         } catch (error) {
-          console.error('Error decrypting GitLab token:', error);
-          throw new ValidationError('Failed to decrypt GitLab token', 'gitlabToken');
+          console.error('Error validating GitLab token:', error);
+          throw new ValidationError('Invalid GitLab token format', 'gitlabToken');
         }
       }
 

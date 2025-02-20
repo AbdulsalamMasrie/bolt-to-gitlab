@@ -18,6 +18,28 @@ export class GitLabTokenValidator extends BaseGitService {
     return new Promise((resolve) => setTimeout(resolve, ms));
   }
 
+  public static async validateAndCacheToken(token: string): Promise<string> {
+    const cachedToken = await chrome.storage.local.get(['cachedToken']);
+    if (cachedToken && cachedToken.token === token) {
+      return cachedToken.decryptedToken;
+    }
+
+    const decryptedToken = token; // No decryption needed since token is already decrypted
+    if (!decryptedToken.startsWith('glpat-')) {
+      throw new Error('Invalid GitLab token format');
+    }
+
+    await chrome.storage.local.set({
+      cachedToken: {
+        token,
+        decryptedToken,
+        timestamp: Date.now()
+      }
+    });
+
+    return decryptedToken;
+  }
+
   async verifyTokenPermissions(
     username: string,
     onProgress?: ProgressCallback
@@ -160,7 +182,14 @@ export class GitLabTokenValidator extends BaseGitService {
 
   async validateTokenAndUser(username: string): Promise<{ isValid: boolean; error?: string }> {
     try {
-      // First validate basic token access
+      // First validate token format and use cache
+      try {
+        await GitLabTokenValidator.validateAndCacheToken(this.token);
+      } catch (error) {
+        return { isValid: false, error: 'Invalid GitLab token format. Token must start with "glpat-".' };
+      }
+
+      // Then validate basic token access
       const basicValidation = await this.validateTokenInternal(username);
       if (!basicValidation.isValid) {
         return basicValidation;
@@ -176,10 +205,12 @@ export class GitLabTokenValidator extends BaseGitService {
     } catch (error: any) {
       console.error('Validation failed:', error);
       const errorMessage = error.gitlabErrorResponse?.message || error.message || String(error);
-      if (errorMessage.includes('401')) {
+      if (errorMessage.includes('401') || errorMessage.includes('Invalid GitLab token')) {
         return { isValid: false, error: 'Invalid or expired GitLab token. Please check your token and try again.' };
       } else if (errorMessage.includes('403')) {
         return { isValid: false, error: 'Insufficient permissions. Please ensure your token has the required scopes (api, read_api, read_repository, write_repository).' };
+      } else if (errorMessage.includes('Invalid GitLab token format')) {
+        return { isValid: false, error: 'Invalid GitLab token format. Token must start with "glpat-".' };
       }
       return { isValid: false, error: `Validation failed: ${errorMessage}` };
     }

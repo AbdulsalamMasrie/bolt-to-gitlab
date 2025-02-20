@@ -331,7 +331,9 @@ export class ZipHandler {
             // Add token validation before creating blobs
             const tokenValidation = await this.gitlabService.validateTokenAndUser(repoOwner);
             if (!tokenValidation.isValid) {
-              throw new Error(`GitLab token validation failed: ${tokenValidation.error}`);
+              const error = new Error(`GitLab token validation failed: ${tokenValidation.error}`);
+              error.name = 'TokenValidationError';
+              throw error;
             }
 
             const blobData = await this.gitlabService.request(
@@ -374,11 +376,11 @@ export class ZipHandler {
               await rateLimitHandler.handleRateLimit(error);
               // Retry the current file by decrementing the loop counter
               completedFiles--;
-            } else if (error.status === 401) {
+            } else if (error.status === 401 || error.name === 'TokenValidationError') {
               throw new Error('Invalid or expired GitLab token. Please check your token and try again.');
             } else if (error.status === 403 && !error.headers?.get('x-ratelimit-remaining')) {
               throw new Error('Insufficient permissions. Please ensure your token has write access to this repository.');
-            } else if (error instanceof Error && error.message.includes('token')) {
+            } else if (error instanceof Error && (error.message.includes('token') || error.name === 'TokenValidationError')) {
               throw new Error(`GitLab token validation failed: ${error.message}`);
             } else {
               throw error;

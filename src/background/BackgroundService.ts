@@ -49,10 +49,14 @@ export class BackgroundService {
       });
 
       const gitlabService = await this.initializeGitLabService();
-      this.setupZipHandler(gitlabService!);
-      this.setupConnectionHandlers();
-      this.setupStorageListener();
-      console.log('👂 Background service initialized');
+      if (gitlabService) {
+        this.setupZipHandler(gitlabService);
+        this.setupConnectionHandlers();
+        this.setupStorageListener();
+        console.log('👂 Background service initialized');
+      } else {
+        console.warn('GitLab service not initialized, waiting for token...');
+      }
     } catch (error) {
       console.error('Failed to initialize background service:', error);
       // Re-throw to ensure caller knows about initialization failure

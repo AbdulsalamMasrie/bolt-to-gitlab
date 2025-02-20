@@ -210,8 +210,7 @@
 
   async function handleDeleteTempRepo() {
     if (tempRepoData) {
-      sendMessage('DELETE_TEMP_REPO', {
-        owner: tempRepoData.owner,
+      console.log('Temporary repository data found:', tempRepoData);
         repo: tempRepoData.tempRepo,
       });
       hasDeletedTempRepo = true;

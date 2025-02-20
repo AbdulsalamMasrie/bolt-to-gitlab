@@ -2,14 +2,12 @@ import { GitLabService } from '../services/GitLabService';
 import type { Message, MessageType, Port, UploadStatusState } from '../lib/types';
 import { StateManager } from './StateManager';
 import { ZipHandler } from '../services/zipHandler';
-import { BackgroundTempRepoManager } from './TempRepoManager';
 
 export class BackgroundService {
   private stateManager: StateManager;
   private zipHandler: ZipHandler | null;
   private ports: Map<number, Port>;
   private gitlabService: GitLabService | null;
-  private tempRepoManager: BackgroundTempRepoManager | null = null;
   private pendingCommitMessage: string;
   private storageListener:
     | ((changes: { [key: string]: chrome.storage.StorageChange }, namespace: string) => void)
@@ -31,16 +29,6 @@ export class BackgroundService {
   private async initialize(): Promise<void> {
     const gitlabService = await this.initializeGitLabService();
     this.setupZipHandler(gitlabService!);
-    if (gitlabService) {
-      const settings = await this.stateManager.getSettings();
-      if (settings?.gitLabSettings?.repoOwner) {
-        this.tempRepoManager = new BackgroundTempRepoManager(
-          gitlabService,
-          settings.gitLabSettings.repoOwner,
-          (status) => this.broadcastStatus(status)
-        );
-      }
-    }
     this.setupConnectionHandlers();
     this.setupStorageListener();
     console.log('👂 Background service initialized');
@@ -170,18 +158,7 @@ export class BackgroundService {
           chrome.action.openPopup();
           break;
 
-        case 'IMPORT_PRIVATE_REPO':
-          console.log('🔄 Processing private repo import:', message.data.repoName);
-          if (!this.tempRepoManager) {
-            throw new Error('Temp repo manager not initialized');
-          }
-          await this.tempRepoManager.handlePrivateRepoImport(message.data.repoName);
-          console.log('✅ Private repo import completed');
-          break;
-        case 'DELETE_TEMP_REPO':
-          await this.tempRepoManager?.cleanupTempRepos(true);
-          console.log('✅ Temp repo cleaned up');
-          break;
+
 
         case 'DEBUG':
           console.log(`[Content Debug] ${message.message}`);

@@ -44,17 +44,23 @@ export class GitLabService extends BaseGitService {
 
   async request(method: string, endpoint: string, body?: any, options: RequestInit = {}) {
     const url = `${this.baseUrl}/${this.apiVersion}${endpoint}`;
-    console.log('GitLab API Request:', { method, url, body });
+    console.log('GitLab API Request:', { method, url });
     
     const headers = { ...this.getRequestHeaders(), ...options.headers };
     console.log('Request headers:', { ...headers, 'PRIVATE-TOKEN': '[REDACTED]' });
     
-    const response = await fetch(url, {
+    // Don't include body for GET requests
+    const requestOptions: RequestInit = {
       method,
       headers,
-      body: body ? JSON.stringify(body) : undefined,
       ...options
-    });
+    };
+    
+    if (method !== 'GET' && body) {
+      requestOptions.body = JSON.stringify(body);
+    }
+    
+    const response = await fetch(url, requestOptions);
 
     console.log('GitLab API Response:', {
       status: response.status,
@@ -179,13 +185,21 @@ export class GitLabService extends BaseGitService {
   public async validateTokenAndUser(username: string): Promise<{ isValid: boolean; error?: string }> {
     try {
       // First verify the token is valid by getting user info
-      const user = await this.request('GET', '/user');
+      const user = await this.request('GET', '/user', undefined, {
+        headers: {
+          'Accept': 'application/json'
+        }
+      });
       if (!user.username) {
         return { isValid: false, error: 'Invalid GitLab token' };
       }
 
       // Then verify the user has access to the specified namespace
-      const namespaces = await this.request('GET', '/namespaces', { search: username });
+      const namespaces = await this.request('GET', `/namespaces?search=${encodeURIComponent(username)}`, undefined, {
+        headers: {
+          'Accept': 'application/json'
+        }
+      });
       const hasAccess = namespaces.some((ns: any) => ns.path === username);
 
       if (!hasAccess) {
@@ -217,7 +231,11 @@ export class GitLabService extends BaseGitService {
       const projectPath = encodeURIComponent(`${owner}/${name}`);
       console.log('Validating repository:', { owner, name, projectPath });
       
-      const response = await this.request('GET', `/projects/${projectPath}`);
+      const response = await this.request('GET', `/projects/${projectPath}`, undefined, {
+        headers: {
+          'Accept': 'application/json'
+        }
+      });
       console.log('Repository validation response:', response);
       
       if (!response) {
@@ -226,7 +244,11 @@ export class GitLabService extends BaseGitService {
 
       // Verify write access by checking branch access
       try {
-        await this.request('GET', `/projects/${projectPath}/repository/branches`);
+        await this.request('GET', `/projects/${projectPath}/repository/branches`, undefined, {
+          headers: {
+            'Accept': 'application/json'
+          }
+        });
       } catch (error: any) {
         console.error('Branch access check failed:', error);
         if (error?.status === 403) {
@@ -275,8 +297,13 @@ export class GitLabService extends BaseGitService {
   ): Promise<GitLabFileResponse> {
     const response = await this.request(
       'GET',
-      `/repository/files/${encodeURIComponent(path)}`,
-      { ref: 'main' }
+      `/repository/files/${encodeURIComponent(path)}?ref=main`,
+      undefined,
+      {
+        headers: {
+          'Accept': 'application/json'
+        }
+      }
     );
     return response as GitLabFileResponse;
   }
@@ -286,12 +313,18 @@ export class GitLabService extends BaseGitService {
     repo: string,
     options: { branch?: string; path?: string } = {}
   ): Promise<GitLabCommitResponse[]> {
+    const queryParams = new URLSearchParams({
+      ref_name: options.branch || 'main',
+      ...(options.path && { path: options.path })
+    });
     const response = await this.request(
       'GET',
-      `/projects/${encodeURIComponent(`${owner}/${repo}`)}/repository/commits`,
+      `/projects/${encodeURIComponent(`${owner}/${repo}`)}/repository/commits?${queryParams}`,
+      undefined,
       {
-        ref_name: options.branch || 'main',
-        path: options.path
+        headers: {
+          'Accept': 'application/json'
+        }
       }
     );
     return response as GitLabCommitResponse[];

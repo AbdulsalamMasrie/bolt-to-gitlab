@@ -25,7 +25,11 @@ export class GitLabTokenValidator extends BaseGitService {
     try {
       // First verify token scopes by checking user info
       try {
-        const user = await this.request('GET', '/user');
+        const user = await this.request('GET', '/user', undefined, {
+          headers: {
+            'Accept': 'application/json'
+          }
+        });
         if (!user.username) {
           onProgress?.({ permission: 'read_repository', isValid: false });
           return {
@@ -45,13 +49,21 @@ export class GitLabTokenValidator extends BaseGitService {
       // Verify write access by attempting to create a temporary file
       try {
         // Get all projects the user has access to
-        const projects = await this.request('GET', '/projects?membership=true');
+        const projects = await this.request('GET', '/projects?membership=true', undefined, {
+          headers: {
+            'Accept': 'application/json'
+          }
+        });
         if (projects.length > 0) {
           // Try each project until we find one with write access
           for (const project of projects) {
             try {
               // Check project access level
-              const members = await this.request('GET', `/projects/${project.id}/members/all`);
+              const members = await this.request('GET', `/projects/${project.id}/members/all`, undefined, {
+                headers: {
+                  'Accept': 'application/json'
+                }
+              });
               const currentUser = members.find((m: any) => m.username.toLowerCase() === username.toLowerCase());
               
               // Access levels: 30 = Developer, 40 = Maintainer, 50 = Owner
@@ -105,7 +117,11 @@ export class GitLabTokenValidator extends BaseGitService {
     username: string
   ): Promise<{ isValid: boolean; error?: string }> {
     try {
-      const authUser = await this.request('GET', '/user');
+      const authUser = await this.request('GET', '/user', undefined, {
+        headers: {
+          'Accept': 'application/json'
+        }
+      });
 
       if (!authUser.username) {
         return { isValid: false, error: 'Invalid GitLab token' };
@@ -116,7 +132,11 @@ export class GitLabTokenValidator extends BaseGitService {
       }
 
       // Check if user has access to the namespace
-      const namespaces = await this.request('GET', `/namespaces?search=${encodeURIComponent(username)}`);
+      const namespaces = await this.request('GET', `/namespaces?search=${encodeURIComponent(username)}`, undefined, {
+        headers: {
+          'Accept': 'application/json'
+        }
+      });
       const hasAccess = namespaces.some(
         (ns: any) => ns.path.toLowerCase() === username.toLowerCase()
       );

@@ -184,23 +184,28 @@ export class BackgroundService {
   }
 
   private async handleZipData(tabId: number, base64Data: string): Promise<void> {
-    console.log('🔄 Handling ZIP data for tab:', tabId);
+    console.log('Processing ZIP data for tab:', tabId);
     const port = this.ports.get(tabId);
-    if (!port) return;
+    if (!port) {
+      console.error('Port not found for tab:', tabId);
+      return;
+    }
 
     try {
       if (!this.gitlabService) {
-        throw new Error('GitLab service is not initialized. Please check your GitLab settings.');
+        throw new Error('GitLab service not initialized. Please check your GitLab settings and try again.');
       }
 
       if (!this.zipHandler) {
-        throw new Error('Zip handler is not initialized.');
+        throw new Error('ZIP handler not initialized. Please try reloading the extension.');
       }
 
       const projectId = await this.stateManager.getProjectId();
       if (!projectId) {
-        throw new Error('Project ID is not set.');
+        throw new Error('Project ID not found. Please make sure you are on a valid Bolt project page.');
       }
+
+      console.log('Validating project:', { tabId, projectId });
 
       try {
         // Convert base64 to blob

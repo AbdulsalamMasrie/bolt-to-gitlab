@@ -334,9 +334,17 @@
 
   <!-- Settings Form -->
   <form on:submit|preventDefault={handleSave} class="space-y-4">
-    <div class="space-y-2">
-      <Label for="gitlabToken" class="text-slate-200">
-        GitLab Token
+    <div class="space-y-4">
+      <h3 class="text-lg font-semibold text-white">Configure GitLab Repository</h3>
+      <p class="text-slate-300 text-sm">Please provide your existing GitLab repository URL:</p>
+      <div class="mt-4 space-y-4">
+        <div>
+          <label for="gitlab-url" class="block text-sm text-slate-300 mb-2">Repository URL</label>
+        </div>
+      </div>
+      <div class="space-y-2">
+        <Label for="gitlabToken" class="text-slate-200">
+          GitLab Token
         <span class="text-sm text-slate-400 ml-2">(Required for uploading)</span>
       </Label>
       <div class="relative">
@@ -496,8 +504,8 @@
 
     <div class="space-y-2">
       <Label for="projectUrl" class="text-slate-200">
-        Project URL
-        <span class="text-sm text-slate-400 ml-2">(GitLab repository URL)</span>
+        Repository URL
+        <span class="text-sm text-slate-400 ml-2">(Your existing GitLab repository URL)</span>
       </Label>
       {#if projectUrlHistory.length > 0}
         <select

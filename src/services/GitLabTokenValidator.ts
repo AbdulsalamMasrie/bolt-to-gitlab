@@ -160,10 +160,27 @@ export class GitLabTokenValidator extends BaseGitService {
 
   async validateTokenAndUser(username: string): Promise<{ isValid: boolean; error?: string }> {
     try {
-      return await this.validateTokenInternal(username);
+      // First validate basic token access
+      const basicValidation = await this.validateTokenInternal(username);
+      if (!basicValidation.isValid) {
+        return basicValidation;
+      }
+
+      // Then verify permissions
+      const permissionCheck = await this.verifyTokenPermissions(username);
+      if (!permissionCheck.isValid) {
+        return permissionCheck;
+      }
+
+      return { isValid: true };
     } catch (error: any) {
       console.error('Validation failed:', error);
       const errorMessage = error.gitlabErrorResponse?.message || error.message || String(error);
+      if (errorMessage.includes('401')) {
+        return { isValid: false, error: 'Invalid or expired GitLab token. Please check your token and try again.' };
+      } else if (errorMessage.includes('403')) {
+        return { isValid: false, error: 'Insufficient permissions. Please ensure your token has the required scopes (api, read_api, read_repository, write_repository).' };
+      }
       return { isValid: false, error: `Validation failed: ${errorMessage}` };
     }
   }

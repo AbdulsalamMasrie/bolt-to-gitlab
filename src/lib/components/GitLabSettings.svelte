@@ -15,6 +15,7 @@
   export let onSave: () => void;
   export let onInput: () => void;
   export let buttonDisabled: boolean = true;
+  export let isOnboarding: boolean = false;
   
   import type { ProjectUrlHistory } from '$lib/types';
   
@@ -378,6 +379,7 @@
       setTimeout(() => {
         status = '';
         hasStatus = false;
+        if (isOnboarding) window.close();
       }, 3000);
 
       onSave();

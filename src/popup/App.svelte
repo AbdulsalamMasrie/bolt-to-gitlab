@@ -193,17 +193,15 @@
 
         if (match && parsedProjectId && projectId.projectId === parsedProjectId) {
           if (projectSettings[parsedProjectId]) {
-            console.log(
-              '📄 App: projectSettings[parsedProjectId]',
-              projectSettings[parsedProjectId]
-            );
             repoName = projectSettings[parsedProjectId].repoName;
             branch = projectSettings[parsedProjectId].branch || 'main';
           } else {
-            // Use project ID as default repo name for new projects
-            repoName = parsedProjectId;
-            console.log('📄 App: saving new project settings');
-            saveSettings();
+            // Initialize default settings for new project
+            projectSettings[parsedProjectId] = {
+              repoName: parsedProjectId,
+              branch: 'main'
+            };
+            await saveSettings();
           }
         }
       }

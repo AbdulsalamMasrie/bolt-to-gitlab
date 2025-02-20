@@ -122,13 +122,28 @@
       gitlabSettings = (await chrome.storage.sync.get([
         'gitlabToken',
         'repoOwner',
+        'repoName',
+        'branch',
+        'repositoryUrl',
         'projectSettings',
       ])) as GitLabSettingsInterface;
       
       // Initialize with empty values if not set
       gitlabToken = gitlabSettings.gitlabToken || '';
       repoOwner = gitlabSettings.repoOwner || '';
+      repoName = gitlabSettings.repoName || '';
+      branch = gitlabSettings.branch || 'main';
       projectSettings = gitlabSettings.projectSettings || {};
+
+      // Load URL history
+      const { projectUrlHistory = [] } = await chrome.storage.local.get('projectUrlHistory');
+      if (gitlabSettings.repositoryUrl) {
+        const history = [
+          { url: gitlabSettings.repositoryUrl, branch, lastUsed: Date.now() },
+          ...projectUrlHistory.filter(h => h.url !== gitlabSettings.repositoryUrl).slice(0, 9)
+        ];
+        await chrome.storage.local.set({ projectUrlHistory: history });
+      }
       
       // Only mark as having initial settings if we have both required fields
       hasInitialSettings = Boolean(gitlabSettings.gitlabToken && gitlabSettings.repoOwner);
@@ -226,6 +241,9 @@
       const settings = {
         gitlabToken: gitlabToken,
         repoOwner: repoOwner,
+        repoName: repoName,
+        branch: branch,
+        repositoryUrl: gitlabSettings.repositoryUrl,
         projectSettings,
       };
 

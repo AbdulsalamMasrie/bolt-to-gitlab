@@ -20,6 +20,7 @@
   import { Button } from '$lib/components/ui/button';
   import Help from '$lib/components/Help.svelte';
   import ProjectStatus from '$lib/components/ProjectStatus.svelte';
+  import { ConnectionManager } from '../lib/ConnectionManager';
 
   let gitlabToken: string = '';
   let repoOwner = '';
@@ -44,14 +45,13 @@
   let hasInitialSettings = false;
   let showTempRepoModal = false;
   let tempRepoData: TempRepoMetadata | null = null;
-  let port: chrome.runtime.Port;
+  let connectionManager: ConnectionManager;
+  let isConnected = false;
+  let connectionError: string | null = null;
+  let hasConnectionError = false;
   let hasDeletedTempRepo = false;
   let hasUsedTempRepoName = false;
   let projectStatusRef: ProjectStatus;
-  const messageQueue: Array<{type: string, data: any}> = [];
-  const MAX_RETRIES = 3;
-  const RETRY_DELAY = 1000;
-  let retryCount = 0;
 
   interface TempRepoMetadata {
     originalRepo: string;
@@ -61,15 +61,8 @@
   }
 
   function sendMessage(type: string, data: any) {
-    if (port) {
-      try {
-        port.postMessage({ type, data });
-      } catch (error) {
-        console.error('Error sending message:', error);
-        messageQueue.push({ type, data });
-      }
-    } else {
-      messageQueue.push({ type, data });
+    if (connectionManager && isConnected) {
+      connectionManager.sendMessage(type, data);
     }
   }
 
@@ -136,25 +129,13 @@
     // Add dark mode to the document
     document.documentElement.classList.add('dark');
 
-    // Initialize connection with retry logic
-    port = await connectToBackground();
-    if (!port) {
-      console.error('Failed to establish connection after retries');
+    // Initialize connection manager
+    await connectToBackground();
+    if (!isConnected) {
+      console.error('Failed to establish connection');
       status = 'Error connecting to extension. Please refresh the page.';
       hasStatus = true;
       isSettingsValid = false;
-    }
-
-    // Process queued messages when connection is established
-    if (port && messageQueue.length > 0) {
-      messageQueue.forEach(msg => {
-        try {
-          port.postMessage(msg);
-        } catch (error) {
-          console.error('Error sending queued message:', error);
-        }
-      });
-      messageQueue.length = 0;
     }
 
     try {

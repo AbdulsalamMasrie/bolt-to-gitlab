@@ -217,7 +217,7 @@ export class ZipHandler {
     await this.updateStatus('uploading', 30, 'Creating file blobs...');
 
     // Create blobs for all files
-    const treeItems = await this.createBlobs(processedFiles, repoOwner, repoName);
+    const treeItems = await this.createBlobs(processedFiles, repoOwner, repoName, targetBranch, commitMessage);
 
     await this.updateStatus('uploading', 70, 'Creating tree...');
 
@@ -247,7 +247,9 @@ export class ZipHandler {
   private async createBlobs(
     files: Map<string, string>,
     repoOwner: string,
-    repoName: string
+    repoName: string,
+    targetBranch: string,
+    commitMessage: string
   ): Promise<Array<{ path: string; mode: string; type: string; sha: string }>> {
     const results: Array<{ path: string; mode: string; type: string; sha: string }> = [];
     const totalFiles = files.size;

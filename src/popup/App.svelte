@@ -73,43 +73,36 @@
     }
   }
 
-  async function connectToBackground(): Promise<chrome.runtime.Port | null> {
+  async function connectToBackground(): Promise<void> {
     try {
-      // Check if extension context is valid
-      if (!chrome.runtime || !chrome.runtime.id) {
-        console.error('Extension context is invalid');
-        return null;
+      if (!connectionManager) {
+        connectionManager = new ConnectionManager('popup');
+        
+        connectionManager.onConnectionChange((connected) => {
+          isConnected = connected;
+          if (!connected) {
+            connectionError = 'Connection lost. Please refresh the page.';
+            hasConnectionError = true;
+          } else {
+            connectionError = null;
+            hasConnectionError = false;
+          }
+        });
+
+        connectionManager.onMessage((message) => {
+          if (message.type === 'UPLOAD_STATUS') {
+            uploadStatus = message.status.status;
+            uploadProgress = message.status.progress || 0;
+            uploadMessage = message.status.message || '';
+          }
+        });
       }
 
-      const port = chrome.runtime.connect({ name: 'popup' });
-      
-      // Set up disconnect handler with exponential backoff
-      port.onDisconnect.addListener(() => {
-        const error = chrome.runtime.lastError;
-        if (error) {
-          console.error('Port disconnected:', error.message);
-        }
-        
-        // Only retry if extension context is still valid
-        if (chrome.runtime && chrome.runtime.id) {
-          if (retryCount < MAX_RETRIES) {
-            retryCount++;
-            const delay = RETRY_DELAY * Math.pow(2, retryCount - 1); // Exponential backoff
-            setTimeout(() => connectToBackground(), delay);
-          } else {
-            console.error('Max reconnection attempts reached');
-          }
-        } else {
-          console.error('Extension context is invalid, not attempting reconnection');
-        }
-      });
-      
-      // Reset retry count on successful connection
-      retryCount = 0;
-      return port;
+      await connectionManager.connect();
     } catch (error) {
-      console.error('Connection failed:', error);
-      return null;
+      console.error('Failed to connect to background:', error);
+      connectionError = 'Failed to connect. Please refresh the page.';
+      hasConnectionError = true;
     }
   }
 
@@ -221,13 +214,7 @@
 
     checkSettingsValidity();
 
-    chrome.runtime.onMessage.addListener((message) => {
-      if (message.type === 'UPLOAD_STATUS') {
-        uploadStatus = message.status;
-        uploadProgress = message.progress || 0;
-        uploadMessage = message.message || '';
-      }
-    });
+    // Message handling is now done through ConnectionManager
 
     // Check for temp repos
     const result = await chrome.storage.local.get(STORAGE_KEY);

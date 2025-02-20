@@ -72,12 +72,9 @@ export class ZipHandler {
     }
 
     if (!this.gitlabService) {
-      await this.updateStatus(
-        'error',
-        0,
-        'GitLab service not initialized. Please set your GitLab token.'
-      );
-      throw new Error('GitLab service not initialized. Please set your GitLab token.');
+      const message = 'GitLab service not initialized. Please set your GitLab token in settings.';
+      await this.updateStatus('error', 0, message);
+      throw new Error(message);
     }
 
     try {
@@ -95,18 +92,23 @@ export class ZipHandler {
       ]);
 
       if (!repoOwner || !repoName) {
-        throw new Error('Repository details not configured. Please set your GitLab repository URL in the settings.');
+        const error = !repoOwner ? 'Repository owner' : 'Repository name';
+        const message = `${error} not configured. Please check your GitLab repository URL in settings.`;
+        await this.updateStatus('error', 0, message);
+        throw new Error(message);
       }
 
       const targetBranch = branch || 'main';
       console.log('📋 Repository details:', { repoOwner, repoName, targetBranch });
 
-      await this.updateStatus('uploading', 15, 'Checking repository...');
+      await this.updateStatus('uploading', 15, 'Validating repository access...');
       try {
         await this.gitlabService.validateRepository(repoOwner, repoName);
       } catch (error) {
+        const message = 'Repository not found or access denied. Please verify your GitLab token has access to this repository.';
         console.error('Repository validation failed:', error);
-        throw new Error('Repository not found. Please make sure the repository exists and you have access to it.');
+        await this.updateStatus('error', 0, message);
+        throw new Error(message);
       }
 
       await this.ensureBranchExists(repoOwner, repoName, targetBranch);

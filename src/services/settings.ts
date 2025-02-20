@@ -1,4 +1,7 @@
 import type { GitLabSettingsInterface, ProjectSettings } from '$lib/types';
+import { ValidationError } from '../lib/errors';
+
+const DEFAULT_GITLAB_BASE_URL = 'https://gitlab.com';
 
 export interface SettingsCheckResult {
   isSettingsValid: boolean;
@@ -101,6 +104,18 @@ export class SettingsService {
   }
 
   // Main settings getter
+  static async validateSettings(settings: Partial<GitLabSettingsInterface>): Promise<void> {
+    if (!settings.gitlabToken) {
+      throw new ValidationError('GitLab token is required', 'gitlabToken');
+    }
+    if (!settings.repoOwner) {
+      throw new ValidationError('Repository owner is required', 'repoOwner');
+    }
+    if (!settings.baseUrl) {
+      settings.baseUrl = DEFAULT_GITLAB_BASE_URL;
+    }
+  }
+
   static async getSettings(): Promise<SettingsCheckResult> {
     try {
       const settings = await chrome.storage.sync.get(['gitlabToken', 'repoOwner', 'baseUrl', 'projectSettings']);
@@ -111,20 +126,29 @@ export class SettingsService {
           decryptedToken = await this.decryptToken(settings.gitlabToken);
         } catch (error) {
           console.error('Error decrypting GitLab token:', error);
-          return { isSettingsValid: false, gitLabSettings: undefined };
+          throw new ValidationError('Failed to decrypt GitLab token', 'gitlabToken');
         }
       }
 
-      const isSettingsValid = Boolean(decryptedToken && settings.repoOwner && settings.baseUrl);
+      const partialSettings: Partial<GitLabSettingsInterface> = {
+        gitlabToken: decryptedToken,
+        repoOwner: settings.repoOwner,
+        baseUrl: settings.baseUrl,
+        projectSettings: settings.projectSettings || {},
+      };
+
+      try {
+        await this.validateSettings(partialSettings);
+      } catch (error) {
+        if (error instanceof ValidationError) {
+          return { isSettingsValid: false, gitLabSettings: undefined };
+        }
+        throw error;
+      }
 
       return {
-        isSettingsValid,
-        gitLabSettings: isSettingsValid ? {
-          gitlabToken: decryptedToken!,
-          repoOwner: settings.repoOwner,
-          baseUrl: settings.baseUrl || 'https://gitlab.com',
-          projectSettings: settings.projectSettings || {},
-        } : undefined,
+        isSettingsValid: true,
+        gitLabSettings: partialSettings as GitLabSettingsInterface,
       };
     } catch (error) {
       console.error('Error checking GitLab settings:', error);

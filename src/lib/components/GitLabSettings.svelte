@@ -70,7 +70,28 @@
     }
   }
 
-  // URL input handling moved to commit flow
+  async function handleUrlChange(url: string) {
+    const parsed = parseGitLabUrl(url);
+    if (parsed) {
+      repoOwner = parsed.owner;
+      repoName = parsed.name;
+      
+      // Update sync storage
+      await chrome.storage.sync.set({
+        repoOwner,
+        repoName,
+        repositoryUrl: url
+      });
+      
+      // Update local history
+      const history = [
+        { url, branch, lastUsed: Date.now() },
+        ...projectUrlHistory.filter(h => h.url !== url).slice(0, 9)
+      ];
+      await chrome.storage.local.set({ projectUrlHistory: history });
+      projectUrlHistory = history;
+    }
+  }
 
   onMount(async () => {
     // Load last permission check timestamp and last used values
@@ -287,7 +308,10 @@
       const settings = {
         gitlabToken,
         repoOwner,
+        repoName,
+        branch,
         baseUrl,
+        repositoryUrl: selectedUrl || newUrl,
         projectSettings,
       };
 
@@ -512,6 +536,7 @@
           id="projectUrl"
           bind:value={selectedUrl}
           class="w-full px-3 py-2 text-sm rounded-md bg-slate-800 text-white border border-slate-700 focus:border-blue-500 focus:outline-none"
+          on:change={() => handleUrlChange(selectedUrl)}
         >
           {#each projectUrlHistory as history}
             <option value={history.url}>{history.url} ({history.branch})</option>
@@ -523,6 +548,7 @@
         type="text"
         id="newProjectUrl"
         bind:value={newUrl}
+        on:input={() => handleUrlChange(newUrl)}
         placeholder="https://gitlab.com/username/repo.git"
         class="bg-slate-800 border-slate-700 text-slate-200 placeholder:text-slate-500"
       />

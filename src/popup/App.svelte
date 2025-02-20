@@ -271,11 +271,8 @@
 
   async function checkSettingsValidity() {
     try {
-      // Only consider settings valid if we have all required fields AND the validation passed
-      isSettingsValid =
-        Boolean(gitlabToken && repoOwner) &&
-        !isValidatingToken &&
-        isTokenValid === true;
+      const validation = validateSettings();
+      isSettingsValid = validation.isValid && !isValidatingToken && isTokenValid === true;
 
       // Ensure settings are saved after validation
       if (isSettingsValid) {
@@ -289,17 +286,31 @@
     }
   }
 
+  function validateSettings(): { isValid: boolean; error?: string } {
+    if (!gitlabToken) {
+      return { isValid: false, error: 'GitLab token is required' };
+    }
+    if (!repoOwner) {
+      return { isValid: false, error: 'Repository owner is required' };
+    }
+    if (parsedProjectId && !repoName) {
+      return { isValid: false, error: 'Repository name is required for the current project' };
+    }
+    return { isValid: true };
+  }
+
   async function saveSettings() {
     try {
-      // Ensure we have the minimum required settings
-      if (!gitlabToken || !repoOwner) {
-        throw new Error('Missing required settings');
+      // Validate settings first
+      const validation = validateSettings();
+      if (!validation.isValid) {
+        throw new Error(validation.error);
       }
 
-      // Validate token and username before saving
+      // Validate token and username with GitLab
       const isValid = await validateGitLabToken(gitlabToken, repoOwner);
       if (!isValid) {
-        throw new Error(validationError || 'Validation failed');
+        throw new Error(validationError || 'GitLab token validation failed');
       }
 
       const settings = {

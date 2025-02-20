@@ -98,15 +98,30 @@ export class ZipHandler {
     }
 
     try {
-      await this.updateStatus('uploading', 0, 'Processing ZIP file...');
+      await this.updateStatus('uploading', 0, 'Validating GitLab token...');
 
+      const { repoOwner } = await chrome.storage.sync.get(['repoOwner']);
+      if (!repoOwner) {
+        const message = 'Repository owner not configured. Please check your GitLab settings.';
+        await this.updateStatus('error', 0, message);
+        throw new Error(message);
+      }
+
+      // Validate token before proceeding
+      const tokenValidation = await this.gitlabService.validateTokenAndUser(repoOwner);
+      if (!tokenValidation.isValid) {
+        const message = `GitLab token validation failed: ${tokenValidation.error}`;
+        await this.updateStatus('error', 0, message);
+        throw new Error(message);
+      }
+
+      await this.updateStatus('uploading', 5, 'Processing ZIP file...');
       console.log('🗜️ Processing ZIP file...');
       const files = await ZipProcessor.processZipBlob(blob);
 
       await this.updateStatus('uploading', 10, 'Preparing files...');
 
-      const { repoOwner, repoName, branch } = await chrome.storage.sync.get([
-        'repoOwner',
+      const { repoName, branch } = await chrome.storage.sync.get([
         'repoName',
         'branch'
       ]);
@@ -313,6 +328,12 @@ export class ZipHandler {
           try {
             await rateLimitHandler.beforeRequest();
 
+            // Add token validation before creating blobs
+            const tokenValidation = await this.gitlabService.validateTokenAndUser(repoOwner);
+            if (!tokenValidation.isValid) {
+              throw new Error(`GitLab token validation failed: ${tokenValidation.error}`);
+            }
+
             const blobData = await this.gitlabService.request(
               'POST',
               `/projects/${encodeURIComponent(`${repoOwner}/${repoName}`)}/repository/files/${encodeURIComponent(path)}`,
@@ -348,11 +369,17 @@ export class ZipHandler {
               20 + Math.floor((completedFiles / totalFiles) * 60),
               `Uploading files (${completedFiles}/${totalFiles})...`
             );
-          } catch (error) {
+          } catch (error: any) {
             if (error instanceof Response && error.status === 403) {
               await rateLimitHandler.handleRateLimit(error);
               // Retry the current file by decrementing the loop counter
               completedFiles--;
+            } else if (error.status === 401) {
+              throw new Error('Invalid or expired GitLab token. Please check your token and try again.');
+            } else if (error.status === 403 && !error.headers?.get('x-ratelimit-remaining')) {
+              throw new Error('Insufficient permissions. Please ensure your token has write access to this repository.');
+            } else if (error instanceof Error && error.message.includes('token')) {
+              throw new Error(`GitLab token validation failed: ${error.message}`);
             } else {
               throw error;
             }

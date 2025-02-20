@@ -277,19 +277,34 @@ export class GitLabService extends BaseGitService {
     content: string,
     options: { message?: string; branch?: string } = {}
   ): Promise<GitLabFileResponse> {
-    const response = await this.request(
-      'POST',
-      `/projects/${encodeURIComponent(`${owner}/${repo}`)}/repository/files/${encodeURIComponent(path)}`,
-      {
-        file_path: path,
-        branch: options.branch || 'main',
-        content,
-        commit_message: options.message || 'Update file via Bolt to GitLab',
-        author_name: 'Bolt to GitLab',
-        author_email: 'bolt-to-gitlab@noreply.gitlab.com'
+    try {
+      // Validate token and permissions first
+      const validation = await this.validateTokenAndUser(owner);
+      if (!validation.isValid) {
+        throw new Error(`Invalid GitLab token: ${validation.error}`);
       }
-    );
-    return response as GitLabFileResponse;
+
+      const response = await this.request(
+        'POST',
+        `/projects/${encodeURIComponent(`${owner}/${repo}`)}/repository/files/${encodeURIComponent(path)}`,
+        {
+          file_path: path,
+          branch: options.branch || 'main',
+          content,
+          commit_message: options.message || 'Update file via Bolt to GitLab',
+          author_name: 'Bolt to GitLab',
+          author_email: 'bolt-to-gitlab@noreply.gitlab.com'
+        }
+      );
+      return response as GitLabFileResponse;
+    } catch (error: any) {
+      if (error.status === 401) {
+        throw new Error('Invalid or expired GitLab token. Please check your token and try again.');
+      } else if (error.status === 403) {
+        throw new Error('Insufficient permissions. Please ensure your token has write access to this repository.');
+      }
+      throw error;
+    }
   }
 
   protected async downloadFile(

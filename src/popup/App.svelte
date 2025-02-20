@@ -88,13 +88,9 @@
 
     try {
       isValidatingToken = true;
-      const gitlabService = new GitLabService(token);
-      const result = await gitlabService.validateTokenAndUser(username);
-      isTokenValid = result.isValid;
-      validationError = result.error || null;
 
-      // Only check connection after token validation
-      if (result.isValid && !isConnected) {
+      // First ensure we have a connection to the background service
+      if (!isConnected) {
         try {
           await connectToBackground();
           if (!isConnected) {
@@ -106,6 +102,16 @@
           validationError = 'Failed to connect to extension. Please check your internet connection and try again.';
           return false;
         }
+      }
+
+      // Then validate the token with GitLab
+      const gitlabService = new GitLabService(token);
+      const result = await gitlabService.validateTokenAndUser(username);
+      isTokenValid = result.isValid;
+      validationError = result.error || null;
+
+      if (!result.isValid) {
+        console.error('Token validation failed:', result.error);
       }
 
       return result.isValid;

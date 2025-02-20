@@ -44,7 +44,16 @@ export abstract class BaseGitService {
       }
 
       const errorMessage = errorDetails.message || errorDetails.error || 'Unknown GitLab API error';
-      const fullErrorMessage = `GitLab API Error (${response.status}): ${errorMessage}`;
+      let fullErrorMessage = `GitLab API Error (${response.status}): ${errorMessage}`;
+
+      // Enhance error messages for common issues
+      if (response.status === 401) {
+        fullErrorMessage = 'Invalid or expired GitLab token. Please check your token and try again.';
+      } else if (response.status === 403) {
+        fullErrorMessage = 'Insufficient permissions. Please ensure your token has the required scopes (api, read_api, read_repository, write_repository).';
+      } else if (response.status === 404) {
+        fullErrorMessage = 'Resource not found. Please check your GitLab username and repository settings.';
+      }
 
       const apiError = new Error(fullErrorMessage) as any;
       apiError.status = response.status;

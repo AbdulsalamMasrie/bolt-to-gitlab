@@ -257,8 +257,9 @@ export class BackgroundService {
           // Extract the original GitLab error message if available
           const originalMessage =
             (decodeError as any).originalMessage || 'GitLab authentication or API error occurred';
-
           throw new Error(`GitLab Error: ${originalMessage}`);
+        } else if (errorMessage.includes('Project settings not found')) {
+          throw new Error('Project settings not configured. Please configure project settings in the extension popup.');
         } else {
           throw new Error(
             `Failed to process ZIP data. Please try reloading the page. ` +

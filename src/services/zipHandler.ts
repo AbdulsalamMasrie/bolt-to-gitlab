@@ -97,17 +97,32 @@ export class ZipHandler {
 
       await this.updateStatus('uploading', 10, 'Preparing files...');
 
-      const { repoOwner, projectSettings } = await chrome.storage.sync.get([
+      const { repoOwner, projectSettings: existingSettings } = await chrome.storage.sync.get([
         'repoOwner',
         'projectSettings',
       ]);
 
-      if (!projectSettings?.[currentProjectId]) {
-        throw new Error('Project settings not found for this project');
-      }
+      let projectSettings = existingSettings || {};
+      let repoName: string;
+      let branch: string;
 
-      const repoName = projectSettings[currentProjectId].repoName;
-      const branch = projectSettings[currentProjectId].branch;
+      // Initialize default settings if not found
+      if (!projectSettings[currentProjectId]) {
+        const defaultSettings = {
+          repoName: currentProjectId,
+          branch: 'main'
+        };
+        projectSettings = {
+          ...projectSettings,
+          [currentProjectId]: defaultSettings
+        };
+        await chrome.storage.sync.set({ projectSettings });
+        repoName = defaultSettings.repoName;
+        branch = defaultSettings.branch;
+      } else {
+        repoName = projectSettings[currentProjectId].repoName;
+        branch = projectSettings[currentProjectId].branch;
+      }
 
       if (!repoOwner || !repoName) {
         throw new Error('Repository details not configured');

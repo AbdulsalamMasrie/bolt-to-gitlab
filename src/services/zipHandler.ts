@@ -26,32 +26,53 @@ export class ZipHandler {
     repoName: string,
     targetBranch: string
   ) => {
-    // Check if branch exists
-    let branchExists = true;
-    try {
-      await this.gitlabService.request(
-        'GET',
-        `/projects/${encodeURIComponent(`${repoOwner}/${repoName}`)}/repository/branches/${targetBranch}`
-      );
-    } catch (error) {
-      branchExists = false;
-    }
+    const projectPath = encodeURIComponent(`${repoOwner}/${repoName}`);
+    console.log('Checking branch existence:', { repoOwner, repoName, targetBranch });
 
-    // If branch doesn't exist, create it from default branch
-    if (!branchExists) {
-      await this.updateStatus('uploading', 18, `Creating branch ${targetBranch}...`);
-      const defaultBranch = await this.gitlabService.request(
-        'GET',
-        `/projects/${encodeURIComponent(`${repoOwner}/${repoName}`)}/repository/branches/main`
-      );
+    try {
+      // Check if branch exists
       await this.gitlabService.request(
-        'POST',
-        `/projects/${encodeURIComponent(`${repoOwner}/${repoName}`)}/repository/branches`,
-        {
-          branch: targetBranch,
-          ref: defaultBranch.commit.id,
-        }
+        'GET',
+        `/projects/${projectPath}/repository/branches/${encodeURIComponent(targetBranch)}`
       );
+      console.log('Branch exists:', targetBranch);
+    } catch (error: any) {
+      if (error?.status === 404) {
+        console.log('Branch not found, creating:', targetBranch);
+        await this.updateStatus('uploading', 18, `Creating branch ${targetBranch}...`);
+
+        try {
+          // Get default branch
+          const defaultBranch = await this.gitlabService.request(
+            'GET',
+            `/projects/${projectPath}/repository/branches/main`
+          );
+
+          if (!defaultBranch?.commit?.id) {
+            throw new Error('Invalid default branch response');
+          }
+
+          // Create new branch
+          await this.gitlabService.request(
+            'POST',
+            `/projects/${projectPath}/repository/branches`,
+            {
+              branch: targetBranch,
+              ref: defaultBranch.commit.id,
+            }
+          );
+          console.log('Branch created successfully:', targetBranch);
+        } catch (createError: any) {
+          console.error('Failed to create branch:', createError);
+          if (createError?.status === 403) {
+            throw new Error('Insufficient permissions to create branch. Please check your GitLab token permissions.');
+          }
+          throw new Error(`Failed to create branch: ${createError.message || 'Unknown error'}`);
+        }
+      } else {
+        console.error('Error checking branch:', error);
+        throw new Error(`Failed to check branch existence: ${error.message || 'Unknown error'}`);
+      }
     }
   };
 

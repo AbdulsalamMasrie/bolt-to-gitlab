@@ -87,14 +87,24 @@ export class SettingsService {
 
   static async initializeGitLabSettings(): Promise<void> {
     try {
-      const settings = await chrome.storage.sync.get(['repoOwner', 'baseUrl', 'projectSettings']);
+      const settings = await chrome.storage.sync.get([
+        'repoOwner',
+        'repoName',
+        'branch',
+        'baseUrl',
+        'repositoryUrl',
+        'projectSettings'
+      ]);
       
       // Initialize with empty settings
       const encryptedToken = await this.encryptToken('');  // Empty token for security
       await chrome.storage.sync.set({
         gitlabToken: encryptedToken,
         repoOwner: settings.repoOwner || '',
-        baseUrl: settings.baseUrl || 'https://gitlab.com',
+        repoName: settings.repoName || '',
+        branch: settings.branch || 'main',
+        baseUrl: settings.baseUrl || DEFAULT_GITLAB_BASE_URL,
+        repositoryUrl: settings.repositoryUrl || '',
         projectSettings: settings.projectSettings || {}
       });
     } catch (error) {
@@ -114,11 +124,19 @@ export class SettingsService {
     if (!settings.baseUrl) {
       settings.baseUrl = DEFAULT_GITLAB_BASE_URL;
     }
+    // Only validate repoName if repositoryUrl is set
+    if (settings.repositoryUrl && !settings.repoName) {
+      throw new ValidationError('Repository name is required when URL is provided', 'repoName');
+    }
+    // Set default branch if repository is configured
+    if (settings.repositoryUrl && !settings.branch) {
+      settings.branch = 'main';
+    }
   }
 
   static async getSettings(): Promise<SettingsCheckResult> {
     try {
-      const settings = await chrome.storage.sync.get(['gitlabToken', 'repoOwner', 'baseUrl', 'projectSettings']);
+      const settings = await chrome.storage.sync.get(['gitlabToken', 'repoOwner', 'repoName', 'branch', 'baseUrl', 'repositoryUrl', 'projectSettings']);
       let decryptedToken: string | undefined;
 
       if (settings.gitlabToken) {
@@ -133,7 +151,10 @@ export class SettingsService {
       const partialSettings: Partial<GitLabSettingsInterface> = {
         gitlabToken: decryptedToken,
         repoOwner: settings.repoOwner,
+        repoName: settings.repoName,
+        branch: settings.branch || 'main',
         baseUrl: settings.baseUrl,
+        repositoryUrl: settings.repositoryUrl,
         projectSettings: settings.projectSettings || {},
       };
 

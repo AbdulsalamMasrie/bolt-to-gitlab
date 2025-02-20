@@ -230,7 +230,9 @@ export class ZipHandler {
           branch: targetBranch,
           content: toBase64(content),
           commit_message: commitMessage,
-          encoding: 'base64'
+          encoding: 'base64',
+          author_name: 'Bolt to GitLab',
+          author_email: 'bolt-to-gitlab@noreply.gitlab.com'
         }
       );
     }
@@ -293,10 +295,12 @@ export class ZipHandler {
               'POST',
               `/projects/${encodeURIComponent(`${repoOwner}/${repoName}`)}/repository/files/${encodeURIComponent(path)}`,
               {
-                branch: 'main',
+                branch: targetBranch,
                 content: toBase64(content),
                 encoding: 'base64',
-                commit_message: 'Add file via Bolt to GitLab'
+                commit_message: commitMessage,
+                author_name: 'Bolt to GitLab',
+                author_email: 'bolt-to-gitlab@noreply.gitlab.com'
               }
             );
 

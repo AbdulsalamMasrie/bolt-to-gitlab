@@ -198,18 +198,22 @@ export class GitLabService extends BaseGitService {
   // Project management methods removed - users must manage their repositories through GitLab UI
 
   protected async uploadFile(
+    owner: string,
+    repo: string,
     path: string,
     content: string,
     options: { message?: string; branch?: string } = {}
   ): Promise<GitLabFileResponse> {
     const response = await this.request(
       'POST',
-      `/repository/files/${encodeURIComponent(path)}`,
+      `/projects/${encodeURIComponent(`${owner}/${repo}`)}/repository/files/${encodeURIComponent(path)}`,
       {
         file_path: path,
         branch: options.branch || 'main',
         content,
-        commit_message: options.message || 'Update file via Bolt to GitLab'
+        commit_message: options.message || 'Update file via Bolt to GitLab',
+        author_name: 'Bolt to GitLab',
+        author_email: 'bolt-to-gitlab@noreply.gitlab.com'
       }
     );
     return response as GitLabFileResponse;

@@ -4,8 +4,8 @@ export class ConnectionManager {
   private port: chrome.runtime.Port | null = null;
   private messageQueue: Array<Message> = [];
   private retryCount = 0;
-  private readonly MAX_RETRIES = 3;
-  private readonly RETRY_DELAY = 1000;
+  private readonly MAX_RETRIES = 5;
+  private readonly RETRY_DELAY = 2000; // 2 seconds base delay
   private connectionListeners: Set<(connected: boolean) => void> = new Set();
   private messageListeners: Set<(message: Message) => void> = new Set();
 
@@ -19,7 +19,21 @@ export class ConnectionManager {
         return false;
       }
 
-      console.log('Connecting to port:', this.portName);
+      // Wait for service worker to be ready
+      await new Promise<void>((resolve) => {
+        const checkServiceWorker = () => {
+          chrome.runtime.getBackgroundPage((backgroundPage) => {
+            if (backgroundPage) {
+              resolve();
+            } else {
+              setTimeout(checkServiceWorker, 100);
+            }
+          });
+        };
+        checkServiceWorker();
+      });
+
+      console.log('Service worker ready, connecting to port:', this.portName);
       this.port = chrome.runtime.connect({ name: this.portName });
       
       if (!this.port) {

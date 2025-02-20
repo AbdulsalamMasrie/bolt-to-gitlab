@@ -27,6 +27,19 @@ export class BackgroundService {
   // this.initializeStorageListener();
 
   private async initialize(): Promise<void> {
+    // Wait for service worker to be ready
+    await new Promise<void>((resolve) => {
+      if (chrome.runtime.getBackgroundPage) {
+        chrome.runtime.getBackgroundPage((backgroundPage) => {
+          if (backgroundPage) {
+            resolve();
+          }
+        });
+      } else {
+        chrome.runtime.onInstalled.addListener(() => resolve());
+      }
+    });
+
     const gitlabService = await this.initializeGitLabService();
     this.setupZipHandler(gitlabService!);
     this.setupConnectionHandlers();

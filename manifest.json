@@ -26,7 +26,7 @@
     {
       "matches": ["https://bolt.new/*"],
       "js": ["src/content/index.ts"],
-      "run_at": "document_start"
+      "run_at": "document_end"
     }
   ]
 }

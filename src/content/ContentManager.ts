@@ -34,11 +34,29 @@ export class ContentManager {
     }
 
     try {
-      await this.initializeConnection();
-      this.messageHandler = new MessageHandler(this.port!);
-      this.uiManager = UIManager.getInstance(this.messageHandler);
-      this.setupEventListeners();
-      this.isInitialized = true;
+      // Ensure runtime is available
+      if (!chrome.runtime?.id) {
+        throw new Error('Chrome runtime not available');
+      }
+
+      // Initialize connection with retries
+      let retries = 0;
+      const maxRetries = 3;
+      while (retries < maxRetries) {
+        try {
+          await this.initializeConnection();
+          this.messageHandler = new MessageHandler(this.port!);
+          this.uiManager = UIManager.getInstance(this.messageHandler);
+          this.setupEventListeners();
+          this.isInitialized = true;
+          return;
+        } catch (error) {
+          retries++;
+          console.warn(`Initialization attempt ${retries}/${maxRetries} failed:`, error);
+          if (retries === maxRetries) throw error;
+          await new Promise(resolve => setTimeout(resolve, 1000 * retries));
+        }
+      }
     } catch (error) {
       console.error('Error initializing ContentManager:', error);
       this.handleInitializationError(error);

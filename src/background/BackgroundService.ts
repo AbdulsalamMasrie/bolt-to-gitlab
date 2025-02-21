@@ -28,41 +28,51 @@ export class BackgroundService {
 
   private async initialize(): Promise<void> {
     try {
-      // Wait for service worker to be ready with increased timeout
+      // Initialize service worker first with proper lifecycle management
       await new Promise<void>((resolve, reject) => {
-        const timeout = setTimeout(() => reject(new Error('Service worker initialization timeout')), 15000);
-        
-        let isResolved = false;
+        const timeout = setTimeout(() => {
+          cleanup();
+          reject(new Error('Service worker initialization timeout (15s)'));
+        }, 15000);
+
+        const cleanup = () => {
+          clearTimeout(timeout);
+          chrome.runtime.onStartup.removeListener(resolveOnce);
+          chrome.runtime.onInstalled.removeListener(resolveOnce);
+        };
+
         const resolveOnce = () => {
-          if (!isResolved) {
-            isResolved = true;
-            clearTimeout(timeout);
-            resolve();
-          }
+          cleanup();
+          resolve();
         };
 
         // Handle both startup and installation cases
         chrome.runtime.onStartup.addListener(resolveOnce);
         chrome.runtime.onInstalled.addListener(resolveOnce);
 
-        // Immediate resolution if service worker is already active
+        // Immediate resolution if already active
         if (chrome.runtime.id) {
           resolveOnce();
         }
       });
 
-      const gitlabService = await this.initializeGitLabService();
-      if (gitlabService) {
-        this.setupZipHandler(gitlabService);
-        this.setupConnectionHandlers();
-        this.setupStorageListener();
-        console.log('👂 Background service initialized');
-      } else {
-        console.warn('GitLab service not initialized, waiting for token...');
+      // Initialize services with proper error handling
+      try {
+        const gitlabService = await this.initializeGitLabService();
+        if (gitlabService) {
+          this.setupZipHandler(gitlabService);
+          this.setupConnectionHandlers();
+          this.setupStorageListener();
+          console.log('👂 Background service initialized successfully');
+        } else {
+          console.warn('GitLab service not initialized, waiting for token configuration...');
+        }
+      } catch (serviceError) {
+        console.error('Failed to initialize services:', serviceError);
+        // Don't re-throw service initialization errors - they will be handled by the respective components
       }
     } catch (error) {
-      console.error('Failed to initialize background service:', error);
-      // Re-throw to ensure caller knows about initialization failure
+      console.error('Critical error in background service initialization:', error);
       throw error;
     }
   }
@@ -108,20 +118,44 @@ export class BackgroundService {
       const tabId = port.sender?.tab?.id ?? -1; // Use -1 for popup
 
       if (!['bolt-content', 'popup'].includes(port.name)) {
+        console.warn('Ignoring connection from unknown port:', port.name);
         return;
       }
 
       console.log('📝 New connection from:', port.name, 'tabId:', tabId);
+      
+      // Clean up any existing port for this tab
+      const existingPort = this.ports.get(tabId);
+      if (existingPort) {
+        try {
+          existingPort.disconnect();
+        } catch (error) {
+          console.warn('Error disconnecting existing port:', error);
+        }
+      }
+      
       this.ports.set(tabId, port);
 
       port.onDisconnect.addListener(() => {
-        console.log('🔌 Port disconnected:', tabId);
+        const error = chrome.runtime.lastError;
+        console.log('🔌 Port disconnected:', tabId, error ? `Error: ${error.message}` : '');
         this.ports.delete(tabId);
       });
 
       port.onMessage.addListener(async (message: Message) => {
-        console.log('📥 Received port message:', { source: port.name, type: message.type });
-        await this.handlePortMessage(tabId, message);
+        try {
+          console.log('📥 Received port message:', { source: port.name, type: message.type });
+          await this.handlePortMessage(tabId, message);
+        } catch (error) {
+          console.error('Error handling port message:', error);
+          this.sendResponse(port, {
+            type: 'UPLOAD_STATUS',
+            status: {
+              status: 'error',
+              message: error instanceof Error ? error.message : 'Unknown error processing message'
+            }
+          });
+        }
       });
     });
 

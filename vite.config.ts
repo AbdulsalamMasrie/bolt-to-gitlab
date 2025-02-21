@@ -41,11 +41,24 @@ export default defineConfig(({ mode }) => {
       minify: mode === 'production',
       sourcemap: mode === 'development',
       rollupOptions: {
+        input: {
+          background: resolve(__dirname, 'src/background/index.ts'),
+          content: resolve(__dirname, 'src/content/index.ts'),
+          popup: resolve(__dirname, 'src/popup/index.html')
+        },
         output: {
           format: 'esm',
           chunkFileNames: 'assets/[name]-[hash].js',
           assetFileNames: 'assets/[name]-[hash][extname]',
-          entryFileNames: '[name].js'
+          entryFileNames: (chunkInfo) => {
+            if (chunkInfo.name === 'content') {
+              return 'content/index.js';
+            }
+            if (chunkInfo.name === 'background') {
+              return 'background/index.js';
+            }
+            return '[name]/[name].js';
+          }
         },
       },
     },

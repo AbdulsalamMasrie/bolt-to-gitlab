@@ -11,6 +11,7 @@ interface NotificationOptions {
   duration?: number;
 }
 
+import { GitLabTokenValidator } from '../services/GitLabTokenValidator';
 export class UIManager {
   private static instance: UIManager | null = null;
   private uploadStatusComponent: UploadStatus | null = null;
@@ -202,28 +203,33 @@ export class UIManager {
       return;
     }
 
-    // Validate settings with GitLab
     try {
       const gitlabService = new GitLabService(
         settings.gitLabSettings.gitlabToken,
         settings.gitLabSettings.baseUrl
       );
 
-      // First validate token and user
-      const tokenResult = await gitlabService.validateTokenAndUser(settings.gitLabSettings.repoOwner);
+      // Use the GitLabTokenValidator for consistent validation
+      const tokenValidator = new GitLabTokenValidator(
+        settings.gitLabSettings.gitlabToken,
+        settings.gitLabSettings.baseUrl
+      );
+
+      const tokenResult = await tokenValidator.validateTokenAndUser(settings.gitLabSettings.repoOwner);
       if (!tokenResult.isValid) {
         this.showNotification({
           type: 'error',
-          message: tokenResult.error || 'Invalid GitLab settings',
+          message: tokenResult.error || 'Invalid GitLab token. Please check your settings.',
           duration: 5000
         });
         return;
       }
 
-      // Then validate repository URL from confirmation dialog
-      const { confirmed, url } = await this.showGitLabConfirmation();
+      // Get confirmation and repository details
+      const { confirmed, url, commitMessage, branch } = await this.showGitLabConfirmation();
       if (!confirmed || !url) return;
 
+      // Validate repository URL
       const repoResult = await gitlabService.validateProjectUrl(url);
       if (!repoResult.isValid) {
         this.showNotification({
@@ -233,34 +239,22 @@ export class UIManager {
         });
         return;
       }
-    } catch (error) {
-      this.showNotification({
-        type: 'error',
-        message: 'Failed to validate GitLab settings',
-        duration: 5000
-      });
-      return;
-    }
 
-    const { confirmed, commitMessage, url, branch } = await this.showGitLabConfirmation();
-    if (!confirmed || !url) return;
+      // Parse URL
+      const urlObj = new URL(url);
+      const parts = urlObj.pathname.replace(/\.git$/, '').split('/').filter(Boolean);
+      if (parts.length < 2) {
+        this.showNotification({
+          type: 'error',
+          message: 'Invalid GitLab repository URL',
+          duration: 5000
+        });
+        return;
+      }
 
-    // Parse URL to get owner and repo name
-    const urlObj = new URL(url);
-    const parts = urlObj.pathname.replace(/\.git$/, '').split('/').filter(Boolean);
-    if (parts.length < 2) {
-      this.showNotification({
-        type: 'error',
-        message: 'Invalid GitLab repository URL',
-        duration: 5000
-      });
-      return;
-    }
+      const [owner, repo] = parts;
 
-    const [owner, repo] = parts;
-
-    try {
-      // Update button state to processing
+      // Update button state
       if (this.uploadButton) {
         this.uploadButton.innerHTML = `
           <svg class="animate-spin" width="16" height="16" viewBox="0 0 24 24">
@@ -278,7 +272,11 @@ export class UIManager {
       await this.findAndClickDownloadButton();
     } catch (error) {
       console.error('Error during GitLab upload:', error);
-      throw new Error('Failed to trigger download. The page structure may have changed.');
+      this.showNotification({
+        type: 'error',
+        message: error instanceof Error ? error.message : 'Failed to upload to GitLab',
+        duration: 5000
+      });
     }
   }
 

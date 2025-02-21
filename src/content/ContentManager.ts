@@ -48,8 +48,7 @@ export class ContentManager {
 
   private shouldInitialize(): boolean {
     const currentUrl = window.location.href;
-    const match = currentUrl.match(/bolt\.new\/~\/([^/]+)/);
-    return !!match;
+    return currentUrl.includes('bolt.new');
   }
 
   private async initializeConnection() {

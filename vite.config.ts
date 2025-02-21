@@ -1,6 +1,6 @@
 import { defineConfig } from 'vite';
 import { svelte } from '@sveltejs/vite-plugin-svelte';
-import { crx } from '@crxjs/vite-plugin';
+import { crx, ManifestV3Export } from '@crxjs/vite-plugin';
 import manifest from './manifest.json';
 import { resolve } from 'path';
 import preprocess from 'svelte-preprocess';
@@ -8,6 +8,7 @@ import preprocess from 'svelte-preprocess';
 // Update manifest with asset paths
 const manifestWithAssets = {
   ...manifest,
+  manifest_version: 3,
   icons: {
     '16': 'assets/icons/icon16.png',
     '48': 'assets/icons/icon48.png',
@@ -21,7 +22,7 @@ const manifestWithAssets = {
       '128': 'assets/icons/icon128.png',
     },
   },
-};
+} as ManifestV3Export;
 
 export default defineConfig(({ mode }) => {
   return {
@@ -40,23 +41,10 @@ export default defineConfig(({ mode }) => {
       minify: mode === 'production',
       sourcemap: mode === 'development',
       rollupOptions: {
-        input: {
-          background: resolve(__dirname, 'src/background/index.ts'),
-          content: resolve(__dirname, 'src/content/index.ts'),
-        },
         output: {
           format: 'esm',
-          entryFileNames: (chunkInfo) => {
-            const folder = chunkInfo.name.includes('background') ? 'background' : 'content';
-            return `${folder}/[name].js`;
-          },
           chunkFileNames: 'assets/[name]-[hash].js',
-          assetFileNames: (assetInfo) => {
-            if (assetInfo.name?.includes('assets/')) {
-              return '[name][extname]';
-            }
-            return 'assets/[name]-[hash][extname]';
-          },
+          assetFileNames: 'assets/[name]-[hash][extname]'
         },
       },
     },

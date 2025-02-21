@@ -28,24 +28,27 @@ export class BackgroundService {
 
   private async initialize(): Promise<void> {
     try {
-      // Wait for service worker to be ready
+      // Wait for service worker to be ready with increased timeout
       await new Promise<void>((resolve, reject) => {
-        const timeout = setTimeout(() => reject(new Error('Service worker initialization timeout')), 5000);
+        const timeout = setTimeout(() => reject(new Error('Service worker initialization timeout')), 15000);
         
-        if (chrome.runtime.getBackgroundPage) {
-          chrome.runtime.getBackgroundPage((backgroundPage) => {
-            if (backgroundPage) {
-              clearTimeout(timeout);
-              resolve();
-            }
-          });
+        let isResolved = false;
+        const resolveOnce = () => {
+          if (!isResolved) {
+            isResolved = true;
+            clearTimeout(timeout);
+            resolve();
+          }
+        };
+
+        // Handle both startup and installation cases
+        chrome.runtime.onStartup.addListener(resolveOnce);
+        chrome.runtime.onInstalled.addListener(resolveOnce);
+
+        // Immediate resolution if service worker is already active
+        if (chrome.runtime.id) {
+          resolveOnce();
         }
-        
-        // Fallback for service worker initialization
-        chrome.runtime.onInstalled.addListener(() => {
-          clearTimeout(timeout);
-          resolve();
-        });
       });
 
       const gitlabService = await this.initializeGitLabService();

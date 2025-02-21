@@ -140,35 +140,42 @@ export class GitLabService extends BaseGitService {
   }
 
   protected async handleError(response: Response): Promise<Error> {
-    let errorDetails;
+    let errorDetails: { message?: string; error?: string } = {};
     try {
       errorDetails = await response.json();
     } catch {
       errorDetails = { message: response.statusText };
     }
 
-    const message = errorDetails.message || errorDetails.error || 'Unknown GitLab API error';
-    const apiError = new Error(`GitLab API Error (${response.status}): ${message}`);
+    const errorMessage = errorDetails.message || errorDetails.error || 'Unknown GitLab API error';
+    const formattedError = `GitLab API Error (${response.status}): ${errorMessage}`;
 
     switch (response.status) {
       case 401:
-        return new Error('GitLab token is invalid or expired. Please check your settings.');
+        return new Error('Invalid or expired GitLab token. Please check your settings and ensure your token is correct.');
       case 403:
-        return new Error('Insufficient permissions for this GitLab operation.');
+        return new Error('Insufficient permissions. Please ensure your GitLab token has the required access rights (api, read_api, read_user, read_repository, write_repository).');
       case 404:
-        return new Error('GitLab repository not found. Please check the repository URL.');
+        return new Error('GitLab repository not found. Please verify the repository URL and ensure you have access to it.');
       case 429: {
         const retryAfter = response.headers.get('Retry-After');
         return new Error(
           `GitLab API rate limit exceeded. Please try again ${
             retryAfter ? `after ${retryAfter} seconds` : 'later'
-          }.`
+          }. Consider reducing the frequency of requests.`
         );
       }
       case 500:
-        return new Error('GitLab server error. Please try again later.');
+        return new Error('GitLab server error. Please try again later or check GitLab\'s status page.');
+      case 502:
+      case 503:
+      case 504:
+        return new Error('GitLab service is temporarily unavailable. Please try again in a few minutes.');
       default:
-        return apiError;
+        if (response.status >= 400 && response.status < 500) {
+          return new Error(`Request error: ${formattedError}. Please check your input and try again.`);
+        }
+        return new Error(formattedError);
     }
   }
 

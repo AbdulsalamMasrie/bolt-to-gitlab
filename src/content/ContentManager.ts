@@ -3,6 +3,7 @@ import { MessageHandler } from './MessageHandler';
 import { UIManager } from './UIManager';
 
 export class ContentManager {
+  private static instance: ContentManager | null = null;
   private uiManager: UIManager | undefined;
   private messageHandler: MessageHandler | undefined;
   private port: chrome.runtime.Port | null = null;
@@ -10,21 +11,38 @@ export class ContentManager {
   private reconnectAttempts = 0;
   private readonly MAX_RECONNECT_ATTEMPTS = 5;
   private readonly RECONNECT_DELAY = 1000;
+  private isInitialized = false;
 
-  constructor() {
+  private constructor() {
     if (!this.shouldInitialize()) {
       console.log('Not initializing ContentManager - URL does not match bolt.new pattern');
       return;
     }
+  }
+
+  public static async create(): Promise<ContentManager> {
+    if (!ContentManager.instance) {
+      ContentManager.instance = new ContentManager();
+      await ContentManager.instance.initialize();
+    }
+    return ContentManager.instance;
+  }
+
+  private async initialize(): Promise<void> {
+    if (this.isInitialized) {
+      return;
+    }
 
     try {
-      this.initializeConnection();
+      await this.initializeConnection();
       this.messageHandler = new MessageHandler(this.port!);
       this.uiManager = UIManager.getInstance(this.messageHandler);
       this.setupEventListeners();
+      this.isInitialized = true;
     } catch (error) {
       console.error('Error initializing ContentManager:', error);
       this.handleInitializationError(error);
+      throw error;
     }
   }
 
@@ -34,8 +52,32 @@ export class ContentManager {
     return !!match;
   }
 
-  private initializeConnection() {
+  private async initializeConnection() {
     try {
+      // Wait for service worker to be ready with increased timeout
+      await new Promise<void>((resolve, reject) => {
+        const timeout = setTimeout(() => reject(new Error('Service worker initialization timeout')), 15000);
+        
+        let isResolved = false;
+        const resolveOnce = () => {
+          if (!isResolved) {
+            isResolved = true;
+            clearTimeout(timeout);
+            resolve();
+          }
+        };
+
+        // Handle both startup and installation cases
+        chrome.runtime.onStartup.addListener(resolveOnce);
+        chrome.runtime.onInstalled.addListener(resolveOnce);
+
+        // Immediate resolution if service worker is already active
+        if (chrome.runtime?.id) {
+          resolveOnce();
+        }
+      });
+
+      // Now try to connect
       this.port = chrome.runtime.connect({ name: 'bolt-content' });
       console.log('🔊 Connected to background service with port:', this.port);
 
@@ -46,6 +88,11 @@ export class ContentManager {
       this.setupPortListeners();
       this.isReconnecting = false;
       this.reconnectAttempts = 0;
+
+      // Send ready message
+      if (this.messageHandler) {
+        this.messageHandler.sendMessage('CONTENT_SCRIPT_READY');
+      }
     } catch (error) {
       if (this.isExtensionContextInvalidated(error)) {
         console.warn('Extension context invalidated, attempting reconnection...');
@@ -123,10 +170,10 @@ export class ContentManager {
     console.log(
       `Attempting reconnection (${this.reconnectAttempts}/${this.MAX_RECONNECT_ATTEMPTS})...`
     );
-    setTimeout(() => this.reconnect(), this.RECONNECT_DELAY);
+    setTimeout(async () => await this.reconnect(), this.RECONNECT_DELAY);
   }
 
-  private reconnect(): void {
+  private async reconnect(): Promise<void> {
     try {
       // Don't attempt reconnection if we're already at max attempts
       if (this.reconnectAttempts >= this.MAX_RECONNECT_ATTEMPTS) {
@@ -138,7 +185,7 @@ export class ContentManager {
 
       // Check if extension context is still valid before attempting reconnection
       if (chrome.runtime && chrome.runtime.id) {
-        this.initializeConnection();
+        await this.initializeConnection();
         if (this.port) {
           this.messageHandler?.updatePort(this.port);
           this.setupEventListeners();
@@ -185,9 +232,17 @@ export class ContentManager {
   }
 
   private cleanup(): void {
-    this.port = null;
+    if (this.port) {
+      try {
+        this.port.disconnect();
+      } catch (error) {
+        console.warn('Error disconnecting port:', error);
+      }
+      this.port = null;
+    }
     this.isReconnecting = false;
     this.reconnectAttempts = 0;
+    this.isInitialized = false;
     this.uiManager?.cleanup();
   }
 
@@ -222,16 +277,17 @@ export class ContentManager {
     }
   }
 
-  public reinitialize(): void {
+  public async reinitialize(): Promise<void> {
     console.log('🔊 Reinitializing content script');
     try {
       this.cleanup();
-      this.initializeConnection();
+      this.isInitialized = false;
+      await this.initialize();
       this.uiManager?.reinitialize();
-      this.messageHandler?.sendMessage('CONTENT_SCRIPT_READY');
     } catch (error) {
       console.error('Error reinitializing content script:', error);
       this.handleInitializationError(error);
+      throw error;
     }
   }
 }
